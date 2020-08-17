@@ -1,0 +1,5 @@
+# @package _group_
+url: https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt
+filename: tinyshakespeare.txt
+cache_dir: ${hydra:runtime.cwd}/datasets_cache
+block_size: 128

@@ -1,0 +1,8 @@
+defaults:
+  - dataset@train_dataset: chars
+  - dataset@test_dataset: null
+  - model: gpt1
+  - trainer: default
+
+seed: 42
+

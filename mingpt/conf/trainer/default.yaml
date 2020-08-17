@@ -1,0 +1,19 @@
+# @package _group_
+config:
+  # optimization parameters
+  max_epochs: 200
+  batch_size:  512
+  learning_rate: 6e-4
+  betas: [0.9, 0.95]
+  grad_norm_clip: 1.0
+  # only applied on matmul weights
+  weight_decay: 0.1
+  # learning rate decay params: linear warmup followed by cosine decay to 10% of original
+  lr_decay: true
+  # these two numbers come from the GPT-3 paper, but may not be good defaults elsewhere
+  warmup_tokens: 10240 # 512*20 
+  # checkpoint settings
+  ckpt_path:  checkpoint.t7
+  # for DataLoader
+  num_workers: 4
+

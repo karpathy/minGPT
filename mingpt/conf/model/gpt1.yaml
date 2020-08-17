@@ -1,0 +1,11 @@
+# @package _group_
+
+config:
+  # GPT-1 like network roughly 125M params
+  embd_pdrop: 0.1
+  resid_pdrop: 0.1
+  attn_pdrop: 0.1
+  n_layer: 8
+  n_head: 8
+  n_embd: 512
+  block_size: ${train_dataset.block_size}

@@ -1,2 +1,9 @@
+input.txt
 .ipynb_checkpoints/
+.idea
 __pycache__/
+datasets_cache
+outputs
+multirun
+*egg-info
+.mypy_cache
