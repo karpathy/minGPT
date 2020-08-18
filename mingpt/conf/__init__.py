@@ -7,7 +7,6 @@ from omegaconf import MISSING
 
 @dataclass
 class GPT1Conf:
-
     embd_pdrop: float = MISSING
     resid_pdrop: float = MISSING
     attn_pdrop: float = MISSING
@@ -15,7 +14,6 @@ class GPT1Conf:
     n_head: int = MISSING
     n_embd: int = MISSING
     block_size: int = MISSING
-    vocab_size: int = MISSING
 
 
 @dataclass
@@ -48,7 +46,6 @@ class TrainerConfig:
     ckpt_path: Optional[str] = MISSING
     num_workers: int = MISSING
 
-
 @dataclass
 class TrainerTarget:
     _target_: str = "mingpt.trainer.Trainer"
@@ -62,11 +59,21 @@ class Config:
     model: Any = MISSING
     seed: int = MISSING
     trainer: Any = MISSING
+    device: str = MISSING
+
+    # checkpoint to load, interpreted as relative to cwd and not to the job working directory.
+    load: Optional[str] = None
+
+    # False to prevent training. useful when loading a checking for quick evaluation
+    train: bool = True
+
+    # evaluation input context
+    context: str = MISSING
 
 
 cs = ConfigStore.instance()
-cs.store(group="model", name="gpt1", node={"config": GPT1Conf})
 cs.store("config", node=Config)
-cs.store(group="dataset", name="chars", node=CharDatasetConf)
+cs.store(group="model", name="gpt1", node={"config": GPT1Conf})
+cs.store(group="dataset", name="tinyshakespeare", node=CharDatasetConf)
 cs.store(group="model", name="gpt1", node=GPTModelTarget)
 cs.store(group="trainer", name="default", node=TrainerTarget)

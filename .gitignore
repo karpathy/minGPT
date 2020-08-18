@@ -7,3 +7,4 @@ outputs
 multirun
 *egg-info
 .mypy_cache
+*.t7

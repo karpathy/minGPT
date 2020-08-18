@@ -1,8 +1,12 @@
 defaults:
-  - dataset@train_dataset: chars
+  - dataset@train_dataset: tinyshakespeare
   - dataset@test_dataset: null
   - model: gpt1
   - trainer: default
 
 seed: 42
 
+device: cuda
+
+# context for evaluation
+context: O God, O God!
