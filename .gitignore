@@ -1,2 +1,5 @@
 .ipynb_checkpoints/
 __pycache__/
+.idea/
+input.txt
+lightning_logs

@@ -30,7 +30,7 @@ mconf = GPTConfig(vocab_size, block_size, n_layer=12, n_head=12, n_embd=768) # a
 model = GPT(mconf)
 
 # construct a trainer
-from mingpt.trainer import Trainer, TrainerConfig
+from mingpt.train import Trainer, TrainerConfig
 tconf = TrainerConfig(max_epochs=10, batch_size=256)
 trainer = Trainer(model, train_dataset, test_dataset, tconf)
 trainer.train()

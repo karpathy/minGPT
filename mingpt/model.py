@@ -11,10 +11,13 @@ import math
 import logging
 
 import torch
+
 import torch.nn as nn
 from torch.nn import functional as F
+import pytorch_lightning as pl
 
 logger = logging.getLogger(__name__)
+
 
 class GPTConfig:
     """ base GPT config, params common to all GPT versions """
@@ -98,23 +101,40 @@ class Block(nn.Module):
         x = x + self.mlp(self.ln2(x))
         return x
 
-class GPT(nn.Module):
-    """  the full GPT language model, with a context size of block_size """
 
-    def __init__(self, config):
+class GPT(pl.LightningModule):
+    """  the full GPT language model, with a context size of block_size """
+    def __init__(self,
+                 vocab_size,
+                 weight_decay=0.1,
+                 betas=(0.9, 0.95),
+                 learning_rate=3e-4,
+                 n_embd=768,
+                 block_size=128,
+                 embd_pdrop=0.1,
+                 n_layer=12,
+                 n_head=4,
+                 resid_pdrop=0.1,
+                 attn_pdrop=0.1
+                 ):
         super().__init__()
+        # auto creates self.hparams from the method signature
+        self.save_hyperparameters()
+
+        # in lightning the "config" is hparams (for hyperparameters)
+        self.config = self.hparams
 
         # input embedding stem
-        self.tok_emb = nn.Embedding(config.vocab_size, config.n_embd)
-        self.pos_emb = nn.Parameter(torch.zeros(1, config.block_size, config.n_embd))
-        self.drop = nn.Dropout(config.embd_pdrop)
+        self.tok_emb = nn.Embedding(vocab_size, n_embd)
+        self.pos_emb = nn.Parameter(torch.zeros(1, block_size, n_embd))
+        self.drop = nn.Dropout(embd_pdrop)
         # transformer
-        self.blocks = nn.Sequential(*[Block(config) for _ in range(config.n_layer)])
+        self.blocks = nn.Sequential(*[Block(self.config) for _ in range(self.config.n_layer)])
         # decoder head
-        self.ln_f = nn.LayerNorm(config.n_embd)
-        self.head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
+        self.ln_f = nn.LayerNorm(self.config.n_embd)
+        self.head = nn.Linear(self.config.n_embd, self.config.vocab_size, bias=False)
 
-        self.block_size = config.block_size
+        self.block_size = self.config.block_size
         self.apply(self._init_weights)
 
         logger.info("number of parameters: %e", sum(p.numel() for p in self.parameters()))
@@ -131,7 +151,19 @@ class GPT(nn.Module):
     def get_block_size(self):
         return self.block_size
 
-    def forward(self, idx, targets=None):
+    def configure_optimizers(self):
+        # create the optimizer
+        no_decay = ["bias", "LayerNorm.weight"]
+        params_decay = [p for n, p in self.named_parameters() if not any(nd in n for nd in no_decay)]
+        params_nodecay = [p for n, p in self.named_parameters() if any(nd in n for nd in no_decay)]
+        optim_groups = [
+            {"params": params_decay, "weight_decay": self.hparams.weight_decay},
+            {"params": params_nodecay, "weight_decay": 0.0},
+        ]
+        optimizer = torch.optim.AdamW(optim_groups, lr=self.hparams.learning_rate, betas=self.hparams.betas)
+        return optimizer
+
+    def forward(self, idx):
         b, t = idx.size()
         assert t <= self.block_size, "Cannot forward, model block size is exhausted."
 
@@ -142,10 +174,19 @@ class GPT(nn.Module):
         x = self.blocks(x)
         x = self.ln_f(x)
         logits = self.head(x)
+        return logits
+
+    def training_step(self, batch, batch_idx):
+        idx, targets = batch
+        # same action as inference
+        logits = self(idx)
 
         # if we are given some desired targets also calculate the loss
         loss = None
         if targets is not None:
             loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1))
 
-        return logits, loss
+        result = pl.TrainResult(minimize=loss, checkpoint_on=loss)
+        result.log('train_loss', loss)
+        return result
+
