@@ -20,9 +20,11 @@ This code is simple enough to just hack inline, not "used", but current API look
 ```python
 
 # you're on your own to define a class that returns individual examples as PyTorch LongTensors
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
 train_dataset = MyDataset(...)
-test_dataset = MyDataset(...)
+val_dataset = MyDataset(...)
+train_loader = DataLoader(train_dataset)
+val_loader = DataLoader(val_dataset)
 
 # construct a GPT model
 from mingpt.model import GPT
@@ -34,7 +36,7 @@ model = GPT(vocab_size=train_dataset.vocab_size,
             learning_rate=6e-4)
 
 # construct a trainer
-rom pytorch_lightning import Trainer
+from pytorch_lightning import Trainer
 from mingpt.lr_decay import LearningRateDecayCallback
 
 # scheduler
@@ -46,7 +48,7 @@ trainer = Trainer(gpus=1, precision=16, max_epochs=500,
                   callbacks=[lr_decay], 
                   progress_bar_refresh_rate=1, 
                   row_log_interval=1)
-trainer.fit(model, train_loader)
+trainer.fit(model, train_loader, val_loader)
 # (... enjoy the show for a while... )
 
 # sample from the model (the [None, ...] and [0] are to push/pop a needed dummy batch dimension)
@@ -63,6 +65,7 @@ Code:
 - [openai/gpt-2](https://github.com/openai/gpt-2) has the model but not the training code, and in TensorFlow
 - [openai/image-gpt](https://github.com/openai/image-gpt) has some more modern gpt-3 like modification in its code, good reference as well
 - huggingface/transformers has a [language-modeling example](https://github.com/huggingface/transformers/tree/master/examples/language-modeling). It is full-featured but as a result also somewhat challenging to trace. E.g. some large functions have as much as 90% unused code behind various branching statements that is unused in the default setting of simple language modeling.
+- [Teddy Koker/image-gpu in PyTorch Lightning](https://github.com/teddykoker/image-gpt)
 
 Papers + some implementation notes:
 
