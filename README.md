@@ -25,15 +25,28 @@ train_dataset = MyDataset(...)
 test_dataset = MyDataset(...)
 
 # construct a GPT model
-from mingpt.model import GPT, GPTConfig
-mconf = GPTConfig(vocab_size, block_size, n_layer=12, n_head=12, n_embd=768) # a GPT-1
-model = GPT(mconf)
+from mingpt.model import GPT
+model = GPT(vocab_size=train_dataset.vocab_size, 
+            block_size=train_dataset.block_size,
+            n_layer=8, 
+            n_head=8, 
+            n_embd=512, 
+            learning_rate=6e-4)
 
 # construct a trainer
-from mingpt.train import Trainer, TrainerConfig
-tconf = TrainerConfig(max_epochs=10, batch_size=256)
-trainer = Trainer(model, train_dataset, test_dataset, tconf)
-trainer.train()
+rom pytorch_lightning import Trainer
+from mingpt.lr_decay import LearningRateDecayCallback
+
+# scheduler
+lr_decay = LearningRateDecayCallback(learning_rate=6e-4, warmup_tokens=512*20,
+                                    final_tokens=00*len(train_dataset)*block_size)
+
+trainer = Trainer(gpus=1, precision=16, max_epochs=500,
+                  gradient_clip_val=1.0, 
+                  callbacks=[lr_decay], 
+                  progress_bar_refresh_rate=1, 
+                  row_log_interval=1)
+trainer.fit(model, train_loader)
 # (... enjoy the show for a while... )
 
 # sample from the model (the [None, ...] and [0] are to push/pop a needed dummy batch dimension)
