@@ -56,11 +56,21 @@ class Trainer:
             logger.info("saving %s", self.config.ckpt_path)
             torch.save(ckpt_model.state_dict(), self.config.ckpt_path)
 
+    def parameter_names_for_module_types(self, model, module_types):
+        parameters = set()
+        for n, m in model.named_modules():
+            for module_type in module_types:
+                if isinstance(m, module_type):
+                    for pn, p in m.named_parameters():
+                        parameters.add(n + "." + pn)
+        return list(parameters)
+
     def train(self):
         model, config = self.model, self.config
 
         # create the optimizer
-        no_decay = ["bias", "ln1.weight", "ln2.weight", "ln_f.weight"]
+        no_decay_module_types = (torch.nn.modules.normalization.LayerNorm,)
+        no_decay = ["bias"] + self.parameter_names_for_module_types(model, no_decay_module_types)
         params_decay = [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)]
         params_nodecay = [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)]
         optim_groups = [
