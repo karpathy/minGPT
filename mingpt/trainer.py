@@ -60,7 +60,7 @@ class Trainer:
         model, config = self.model, self.config
 
         # create the optimizer
-        no_decay = ["bias", "ln1.weight", "ln2.weight"]
+        no_decay = ["bias", "ln1.weight", "ln2.weight", "ln_f.weight"]
         params_decay = [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)]
         params_nodecay = [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)]
         optim_groups = [
