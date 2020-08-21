@@ -14,6 +14,8 @@ import torch.optim as optim
 from torch.optim.lr_scheduler import LambdaLR
 from torch.utils.data.dataloader import DataLoader
 
+from labml import monit, tracker, logger as labml_logger
+
 logger = logging.getLogger(__name__)
 
 class TrainerConfig:
@@ -76,9 +78,7 @@ class Trainer:
             loader = DataLoader(data, batch_size=config.batch_size, num_workers=config.num_workers)
 
             losses = []
-            pbar = tqdm(enumerate(loader), total=len(loader)) if is_train else enumerate(loader)
-            for it, (x, y) in pbar:
-
+            for it, (x, y) in monit.enum(split, loader):
                 # place data on the correct device
                 x = x.to(self.device)
                 y = y.to(self.device)
@@ -114,16 +114,19 @@ class Trainer:
                         lr = config.learning_rate
 
                     # report progress
-                    pbar.set_description(f"epoch {epoch+1} iter {it}: train loss {loss.item():.5f}. lr {lr:e}")
+                    tracker.save({f'loss.{split}': loss, 'lr': lr})
 
             if not is_train:
-                logger.info("test loss: %f", np.mean(losses))
+                tracker.save({f'loss.{split}': losses})
 
         self.tokens = 0 # counter used for learning rate decay
-        for epoch in range(config.max_epochs):
+        tracker.set_scalar('lr', is_print=False)
+        for epoch in monit.loop(config.max_epochs):
 
             run_epoch('train')
             if self.test_dataset is not None:
                 run_epoch('test')
+
+            labml_logger.log()
 
             self.save_checkpoint()
