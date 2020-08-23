@@ -31,6 +31,7 @@ class TrainerConfig:
     # checkpoint settings
     ckpt_path = None
     num_workers = 0 # for DataLoader
+    decay_parameter_names = None # Any parameter names we wish to explicity include in weight decay
 
     def __init__(self, **kwargs):
         for k,v in kwargs.items():
@@ -65,12 +66,28 @@ class Trainer:
                         parameters.add(n + "." + pn)
         return list(parameters)
 
+    def no_decay_parameter_names(self, model, decay_parameter_name_overrides=None):
+
+        # define module types we always want to exclude from weight decay
+        no_decay_module_types = (torch.nn.modules.normalization.LayerNorm, torch.nn.modules.sparse.Embedding)
+
+        all_module_parameter_names = self.parameter_names_for_module_types(model, (torch.nn.Module,))
+
+        freestanding_parameter_names = [n for n, p in model.named_parameters() if not any(nd in n for nd in all_module_parameter_names)]
+
+        # construct the list of names of freestanding Parameters - those not nested within a module
+        parameter_names = ["bias"] + self.parameter_names_for_module_types(model, no_decay_module_types) + freestanding_parameter_names
+
+        if decay_parameter_name_overrides:
+            parameter_names = [n for n in parameter_names if not any(d in n for d in decay_parameter_name_overrides)]
+
+        return parameter_names
+
     def train(self):
         model, config = self.model, self.config
 
         # create the optimizer
-        no_decay_module_types = (torch.nn.modules.normalization.LayerNorm,)
-        no_decay = ["bias"] + self.parameter_names_for_module_types(model, no_decay_module_types)
+        no_decay = self.no_decay_parameter_names(model, config.decay_parameter_names)
         params_decay = [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)]
         params_nodecay = [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)]
         optim_groups = [
