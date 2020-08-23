@@ -11,6 +11,7 @@ import numpy as np
 
 import torch
 import torch.optim as optim
+import torch.cuda.amp as amp
 from torch.optim.lr_scheduler import LambdaLR
 from torch.utils.data.dataloader import DataLoader
 
@@ -68,6 +69,7 @@ class Trainer:
             {"params": params_nodecay, "weight_decay": 0.0},
         ]
         optimizer = optim.AdamW(optim_groups, lr=config.learning_rate, betas=config.betas)
+        scaler = amp.GradScaler()
 
         def run_epoch(split):
             is_train = split == 'train'
@@ -85,17 +87,20 @@ class Trainer:
 
                 # forward the model
                 with torch.set_grad_enabled(is_train):
-                    logits, loss = model(x, y)
-                    loss = loss.mean() # collapse all losses if they are scattered on multiple gpus
+                    with amp.autocast():
+                        logits, loss = model(x, y)
+                        loss = loss.mean() # collapse all losses if they are scattered on multiple gpus
                     losses.append(loss.item())
 
                 if is_train:
 
                     # backprop and update the parameters
                     model.zero_grad()
-                    loss.backward()
+                    scaler.scale(loss).backward()
+                    scaler.unscale_(optimizer)
                     torch.nn.utils.clip_grad_norm_(model.parameters(), config.grad_norm_clip)
-                    optimizer.step()
+                    scaler.step(optimizer)
+                    scaler.update()
 
                     # decay the learning rate based on our progress
                     if config.lr_decay:
