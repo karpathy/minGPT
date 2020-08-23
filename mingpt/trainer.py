@@ -51,22 +51,15 @@ class Trainer:
             self.model = torch.nn.DataParallel(self.model).to(self.device)
 
     def save_checkpoint(self):
-        ckpt_model = self.model.module if hasattr(self.model, "module") else self.model
+        # DataParallel wrappers keep raw model object in .module attribute
+        raw_model = self.model.module if hasattr(self.model, "module") else self.model
         logger.info("saving %s", self.config.ckpt_path)
-        torch.save(ckpt_model.state_dict(), self.config.ckpt_path)
+        torch.save(raw_model.state_dict(), self.config.ckpt_path)
 
     def train(self):
         model, config = self.model, self.config
-
-        # create the optimizer
-        no_decay = ["bias", "LayerNorm.weight"]
-        params_decay = [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)]
-        params_nodecay = [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)]
-        optim_groups = [
-            {"params": params_decay, "weight_decay": config.weight_decay},
-            {"params": params_nodecay, "weight_decay": 0.0},
-        ]
-        optimizer = optim.AdamW(optim_groups, lr=config.learning_rate, betas=config.betas)
+        raw_model = model.module if hasattr(self.model, "module") else model
+        optimizer = raw_model.configure_optimizers(config)
 
         def run_epoch(split):
             is_train = split == 'train'
