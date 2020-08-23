@@ -9,6 +9,7 @@ The core minGPT "library" (hah) is two files: `mingpt/model.py` contains the act
 
 - `play_math.ipynb` trains a GPT focused on addition (inspired by the addition section in the GPT-3 paper)
 - `play_char.ipynb` trains a GPT to be a character-level language model on arbitrary text, similar to my older char-rnn but with a transformer instead of an RNN
+- `play_image.ipynb` trains a GPT on (small) images (CIFAR-10), showing that we can model images just as text, as both can be reduced to just a sequence of integers
 - `play_words.ipynb` a BPE version that does not yet exist
 
 With a bpe encoder, distributed training and maybe fp16 this implementation may be able to reproduce GPT-1/GPT-2 results, though I haven't tried $$$. GPT-3 is likely out of reach as my understanding is that it does not fit into GPU memory and requires a more careful model-parallel treatment.
@@ -93,6 +94,22 @@ Papers + some implementation notes:
 - Linear LR warmup over the first 375 million tokens. Then use cosine decay for learning rate down to 10% of its value, over 260 billion tokens.
 - gradually increase the batch size linearly from a small value (32k tokens) to the full value over the first 4-12 billion tokens of training, depending on the model size.
 - full 2048-sized time context window is always used, with a special END OF DOCUMENT token delimiter
+
+#### Generative Pretraining from Pixels (Image GPT)
+
+- When working with images, we pick the identity permutation πi = i for 1 ≤ i ≤ n, also known as raster order.
+- we create our own 9-bit color palette by clustering (R, G, B) pixel values using k-means with k = 512.
+- Our largest model, iGPT-XL, contains L = 60 layers and uses an embedding size of d = 3072 for a total of 6.8B parameters.
+- Our next largest model, iGPT-L, is essentially identical to GPT-2 with L = 48 layers, but contains a slightly smaller embedding size of d = 1536 (vs 1600) for a total of 1.4M parameters.
+- We use the same model code as GPT-2, except that we initialize weights in the layerdependent fashion as in Sparse Transformer (Child et al., 2019) and zero-initialize all projections producing logits.
+- We also train iGPT-M, a 455M parameter model with L = 36 and d = 1024
+- iGPT-S, a 76M parameter model with L = 24 and d = 512 (okay, and how many heads? looks like the Github code claims 8)
+- When pre-training iGPT-XL, we use a batch size of 64 and train for 2M iterations, and for all other models we use a batch size of 128 and train for 1M iterations.
+- Adam with β1 = 0.9 and β2 = 0.95
+- The learning rate is warmed up for one epoch, and then decays to 0
+- We did not use weight decay because applying a small weight decay of 0.01 did not change representation quality.
+- iGPT-S lr 0.003
+- No dropout is used.
 
 ### License
 
