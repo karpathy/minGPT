@@ -51,23 +51,15 @@ class Trainer:
             self.model = torch.nn.DataParallel(self.model).to(self.device)
 
     def save_checkpoint(self):
-        if self.config.ckpt_path is not None:
-            ckpt_model = self.model.module if hasattr(self.model, "module") else self.model
-            logger.info("saving %s", self.config.ckpt_path)
-            torch.save(ckpt_model.state_dict(), self.config.ckpt_path)
+        # DataParallel wrappers keep raw model object in .module attribute
+        raw_model = self.model.module if hasattr(self.model, "module") else self.model
+        logger.info("saving %s", self.config.ckpt_path)
+        torch.save(raw_model.state_dict(), self.config.ckpt_path)
 
     def train(self):
         model, config = self.model, self.config
-
-        # create the optimizer
-        no_decay = ["bias", "LayerNorm.weight"]
-        params_decay = [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)]
-        params_nodecay = [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)]
-        optim_groups = [
-            {"params": params_decay, "weight_decay": config.weight_decay},
-            {"params": params_nodecay, "weight_decay": 0.0},
-        ]
-        optimizer = optim.AdamW(optim_groups, lr=config.learning_rate, betas=config.betas)
+        raw_model = model.module if hasattr(self.model, "module") else model
+        optimizer = raw_model.configure_optimizers(config)
 
         def run_epoch(split):
             is_train = split == 'train'
@@ -117,13 +109,20 @@ class Trainer:
                     pbar.set_description(f"epoch {epoch+1} iter {it}: train loss {loss.item():.5f}. lr {lr:e}")
 
             if not is_train:
-                logger.info("test loss: %f", np.mean(losses))
+                test_loss = float(np.mean(losses))
+                logger.info("test loss: %f", test_loss)
+                return test_loss
 
+        best_loss = float('inf')
         self.tokens = 0 # counter used for learning rate decay
         for epoch in range(config.max_epochs):
 
             run_epoch('train')
             if self.test_dataset is not None:
-                run_epoch('test')
+                test_loss = run_epoch('test')
 
-            self.save_checkpoint()
+            # supports early stopping based on the test loss, or just save always if no test set is provided
+            good_model = self.test_dataset is None or test_loss < best_loss
+            if self.config.ckpt_path is not None and good_model:
+                best_loss = test_loss
+                self.save_checkpoint()
