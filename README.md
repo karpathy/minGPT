@@ -40,7 +40,7 @@ trainer.train()
 # sample from the model (the [None, ...] and [0] are to push/pop a needed dummy batch dimension)
 from mingpt.utils import sample
 x = torch.tensor([1, 2, 3], dtype=torch.long)[None, ...] # context conditioning
-y = sample(model, x, steps=30, temperature=1.0, sample=True, top_k=5)[0]
+y = sample(model, x, steps=30, temperature=1.0, force_most_likely=True, top_k_crop=5)[0]
 print(y) # our model filled in the integer sequence with 30 additional likely integers
 ```
 
