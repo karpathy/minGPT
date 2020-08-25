@@ -65,7 +65,9 @@ class Trainer:
             is_train = split == 'train'
             model.train(is_train)
             data = self.train_dataset if is_train else self.test_dataset
-            loader = DataLoader(data, batch_size=config.batch_size, num_workers=config.num_workers)
+            loader = DataLoader(data, shuffle=True, pin_memory=True,
+                                batch_size=config.batch_size,
+                                num_workers=config.num_workers)
 
             losses = []
             pbar = tqdm(enumerate(loader), total=len(loader)) if is_train else enumerate(loader)
