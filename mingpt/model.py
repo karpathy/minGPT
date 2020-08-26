@@ -9,6 +9,9 @@ GPT model:
 
 import math
 import logging
+from typing import ClassVar
+
+import attr
 
 import torch
 import torch.nn as nn
@@ -16,23 +19,28 @@ from torch.nn import functional as F
 
 logger = logging.getLogger(__name__)
 
+
+@attr.s(frozen=True, auto_attribs=True)
 class GPTConfig:
     """ base GPT config, params common to all GPT versions """
-    embd_pdrop = 0.1
-    resid_pdrop = 0.1
-    attn_pdrop = 0.1
+    """ previously supported kwargs in init. now immutable"""
+    vocab_size: int
+    block_size: int
+    embd_pdrop: ClassVar[float] = 0.1
+    resid_pdrop: ClassVar[float] = 0.1
+    attn_pdrop: ClassVar[float] = 0.1
 
-    def __init__(self, vocab_size, block_size, **kwargs):
-        self.vocab_size = vocab_size
-        self.block_size = block_size
-        for k,v in kwargs.items():
-            setattr(self, k, v)
+    @property
+    def as_dict(self):
+        return attr.asdict(self)
+
 
 class GPT1Config(GPTConfig):
     """ GPT-1 like network roughly 125M params """
-    n_layer = 12
-    n_head = 12
-    n_embd = 768
+    n_layer: ClassVar[int] = 12
+    n_head: ClassVar[int] = 12
+    n_embd: ClassVar[int] = 768
+
 
 class CausalSelfAttention(nn.Module):
     """
@@ -78,6 +86,7 @@ class CausalSelfAttention(nn.Module):
         y = self.resid_drop(self.proj(y))
         return y
 
+
 class Block(nn.Module):
     """ an unassuming Transformer block """
 
@@ -97,6 +106,7 @@ class Block(nn.Module):
         x = x + self.attn(self.ln1(x))
         x = x + self.mlp(self.ln2(x))
         return x
+
 
 class GPT(nn.Module):
     """  the full GPT language model, with a context size of block_size """
