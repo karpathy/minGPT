@@ -12,7 +12,6 @@ import numpy as np
 import torch
 import torch.optim as optim
 from torch.optim.lr_scheduler import LambdaLR
-from torch.utils.data.dataloader import DataLoader
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +83,7 @@ class Trainer:
         logger.info("saving %s", self.config.ckpt_path)
         torch.save(raw_model.state_dict(), self.config.ckpt_path)
 
-    def train(self):
+    def fit(self, train_loader, test_loader=None):
         model, config = self.model, self.config
         raw_model = model.module if hasattr(self.model, "module") else model
         optimizer = raw_model.configure_optimizers()
@@ -94,9 +93,7 @@ class Trainer:
             is_train = split == 'train'
             model.train(is_train)
             data = self.train_dataset if is_train else self.test_dataset
-            loader = DataLoader(data, shuffle=True, pin_memory=True,
-                                batch_size=config.batch_size,
-                                num_workers=config.num_workers)
+            loader = train_loader if is_train else test_loader
 
             losses = []
             pbar = tqdm(enumerate(loader), total=len(loader)) if is_train else enumerate(loader)
@@ -138,11 +135,11 @@ class Trainer:
         for epoch in range(config.max_epochs):
 
             run_epoch('train')
-            if self.test_dataset is not None:
+            if self.test_loader is not None:
                 test_loss = run_epoch('test')
 
             # supports early stopping based on the test loss, or just save always if no test set is provided
-            good_model = self.test_dataset is None or test_loss < best_loss
+            good_model = self.test_loader is None or test_loss < best_loss
             if self.config.ckpt_path is not None and good_model:
                 best_loss = test_loss
                 self.save_checkpoint()
