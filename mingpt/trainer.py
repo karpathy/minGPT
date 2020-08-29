@@ -15,22 +15,6 @@ from torch.optim.lr_scheduler import LambdaLR
 
 logger = logging.getLogger(__name__)
 
-class TrainerConfig:
-    # optimization parameters
-    max_epochs = 10
-    batch_size = 64
-    learning_rate = 3e-4
-    betas = (0.9, 0.95)
-    grad_norm_clip = 1.0
-    weight_decay = 0.1 # only applied on matmul weights
-    # checkpoint settings
-    ckpt_path = None
-    num_workers = 0 # for DataLoader
-
-    def __init__(self, **kwargs):
-        for k,v in kwargs.items():
-            setattr(self, k, v)
-
 class WarmupCosineLearningRateDecay:
     """
     based on the number of tokens seen during training will adjust the learning rate:
@@ -64,25 +48,27 @@ class WarmupCosineLearningRateDecay:
 
 class Trainer:
 
-    def __init__(self, config, callbacks=None):
-        self.config = config
-        self.model = None
+    def __init__(self, max_epochs, gradient_clip_val=None, ckpt_path=None, callbacks=None):
+        self.max_epochs = max_epochs
+        self.gradient_clip_val = gradient_clip_val
+        self.ckpt_path = ckpt_path
         self.callbacks = [] if callbacks is None else callbacks
+        self.model = None
 
     def save_checkpoint(self):
         # DataParallel wrappers keep raw model object in .module attribute
         raw_model = self.model.module if hasattr(self.model, "module") else self.model
-        logger.info("saving %s", self.config.ckpt_path)
-        torch.save(raw_model.state_dict(), self.config.ckpt_path)
+        logger.info("saving %s", self.ckpt_path)
+        torch.save(raw_model.state_dict(), self.ckpt_path)
 
     def fit(self, model, train_loader, test_loader=None):
         self.model = model # bind model to the class here
 
         # prepare the model for training
-        device = 'cpu'
+        self.device = 'cpu'
         if torch.cuda.is_available():
-            device = torch.cuda.current_device()
-            self.model = torch.nn.DataParallel(self.model).to(device)
+            self.device = torch.cuda.current_device()
+            self.model = torch.nn.DataParallel(self.model).to(self.device)
 
         # preprare the optimizer
         raw_model = self.model.module if hasattr(self.model, "module") else self.model
@@ -99,8 +85,8 @@ class Trainer:
             for it, (x, y) in pbar:
 
                 # place data on the correct device
-                x = x.to(device)
-                y = y.to(device)
+                x = x.to(self.device)
+                y = y.to(self.device)
 
                 # forward the model
                 with torch.set_grad_enabled(is_train):
@@ -113,7 +99,8 @@ class Trainer:
                     # backprop and update the parameters
                     self.model.zero_grad()
                     loss.backward()
-                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.grad_norm_clip)
+                    if self.gradient_clip_val is not None:
+                        torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.gradient_clip_val)
                     optimizer.step()
 
                     # notify all relevant callbacks that a batch update ended. e.g. a callback may decay learning rate
@@ -131,7 +118,7 @@ class Trainer:
                 return test_loss
 
         best_loss = float('inf')
-        for epoch in range(self.config.max_epochs):
+        for epoch in range(self.max_epochs):
 
             run_epoch('train')
             if test_loader is not None:
@@ -139,6 +126,6 @@ class Trainer:
 
             # supports early stopping based on the test loss, or just save always if no test set is provided
             good_model = test_loader is None or test_loss < best_loss
-            if self.config.ckpt_path is not None and good_model:
+            if self.ckpt_path is not None and good_model:
                 best_loss = test_loss
                 self.save_checkpoint()
