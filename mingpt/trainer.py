@@ -1,6 +1,7 @@
 """
 Simple training loop; Boilerplate that could apply to any arbitrary neural network,
-so nothing in this file really has anything to do with GPT specifically.
+so nothing in this file really has anything to do with GPT specifically. This is a
+very basic Trainer class that will only train the model on up to one GPU.
 """
 
 import math
@@ -57,22 +58,21 @@ class Trainer:
 
     def save_checkpoint(self):
         # DataParallel wrappers keep raw model object in .module attribute
-        raw_model = self.model.module if hasattr(self.model, "module") else self.model
-        logger.info("saving %s", self.ckpt_path)
-        torch.save(raw_model.state_dict(), self.ckpt_path)
+        logger.info("saving model checkpoint to %s", self.ckpt_path)
+        torch.save(self.model.state_dict(), self.ckpt_path)
 
     def fit(self, model, train_loader, test_loader=None):
         self.model = model # bind model to the class here
-
-        # prepare the model for training
         self.device = 'cpu'
+
+        # ship model to gpu if possible
         if torch.cuda.is_available():
-            self.device = torch.cuda.current_device()
-            self.model = torch.nn.DataParallel(self.model).to(self.device)
+            logger.info("found CUDA device, shipping model to GPU")
+            self.device = 'cuda'
+            self.model = self.model.to(self.device)
 
         # preprare the optimizer
-        raw_model = self.model.module if hasattr(self.model, "module") else self.model
-        optimizer = raw_model.configure_optimizers()
+        optimizer = self.model.configure_optimizers()
         self.optimizers = [optimizer]
 
         def run_epoch(split):
@@ -90,8 +90,7 @@ class Trainer:
 
                 # forward the model
                 with torch.set_grad_enabled(is_train):
-                    logits, loss = self.model(x, y)
-                    loss = loss.mean() # collapse all losses if they are scattered on multiple gpus
+                    loss = self.model.training_step((x, y))
                     losses.append(loss.item())
 
                 if is_train:

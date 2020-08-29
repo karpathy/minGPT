@@ -186,7 +186,7 @@ class GPT(nn.Module):
         optimizer = torch.optim.AdamW(optim_groups, lr=self.learning_rate, betas=self.betas)
         return optimizer
 
-    def forward(self, idx, targets=None):
+    def forward(self, idx):
         b, t = idx.size()
         assert t <= self.block_size, "Cannot forward, model block size is exhausted."
 
@@ -198,9 +198,14 @@ class GPT(nn.Module):
         x = self.ln_f(x)
         logits = self.head(x)
 
-        # if we are given some desired targets also calculate the loss
-        loss = None
-        if targets is not None:
-            loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1))
+        return logits
 
-        return logits, loss
+    def training_step(self, batch, batch_idx=None):
+        idx, targets = batch
+
+        # forward pass the inputs
+        logits = self(idx)
+        # calculate the loss w.r.t. the desired targets
+        loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1))
+
+        return loss
