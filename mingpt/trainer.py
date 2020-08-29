@@ -64,10 +64,8 @@ class WarmupCosineLearningRateDecay:
 
 class Trainer:
 
-    def __init__(self, model, train_dataset, test_dataset, config, callbacks=None):
+    def __init__(self, model, config, callbacks=None):
         self.model = model
-        self.train_dataset = train_dataset
-        self.test_dataset = test_dataset
         self.config = config
         self.callbacks = [] if callbacks is None else callbacks
 
@@ -92,7 +90,6 @@ class Trainer:
         def run_epoch(split):
             is_train = split == 'train'
             model.train(is_train)
-            data = self.train_dataset if is_train else self.test_dataset
             loader = train_loader if is_train else test_loader
 
             losses = []
@@ -135,11 +132,11 @@ class Trainer:
         for epoch in range(config.max_epochs):
 
             run_epoch('train')
-            if self.test_loader is not None:
+            if test_loader is not None:
                 test_loss = run_epoch('test')
 
             # supports early stopping based on the test loss, or just save always if no test set is provided
-            good_model = self.test_loader is None or test_loss < best_loss
+            good_model = test_loader is None or test_loss < best_loss
             if self.config.ckpt_path is not None and good_model:
                 best_loss = test_loss
                 self.save_checkpoint()
