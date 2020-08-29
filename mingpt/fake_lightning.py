@@ -42,6 +42,23 @@ class LightningModule(nn.Module):
 class Callback:
     pass
 
+class LightningDataModule:
+
+    def prepare_data(self):
+        pass
+
+    def setup(self, stage):
+        pass
+
+    def train_dataloader(self):
+        return None
+
+    def val_dataloader(self):
+        return None
+
+    def test_dataloader(self):
+        return None
+
 # -----------------------------------------------------------------------------
 """
 Simple Trainer object; Boilerplate that could apply to any arbitrary neural network,
@@ -59,13 +76,25 @@ class Trainer:
         self.callbacks = [] if callbacks is None else callbacks
         self.model = None
 
+        if self.gpus > 1:
+            logger.error("This simple Trainer does not support > 1 GPUs, will just use one.")
+
     def save_checkpoint(self):
         # DataParallel wrappers keep raw model object in .module attribute
         logger.info("saving model checkpoint to %s", self.ckpt_path)
         torch.save(self.model.state_dict(), self.ckpt_path)
 
-    def fit(self, model, train_loader, test_loader=None):
+    def fit(self, model, data_module):
         self.model = model # bind model to the class here
+
+        # prepare the dataloaders for outputting batches
+        data_module.prepare_data()
+        train_loader = data_module.train_dataloader()
+        if train_loader is not None:
+            data_module.setup('fit') # fit... should be 'train'? ;\
+        test_loader = data_module.test_dataloader()
+        if test_loader is not None:
+            data_module.setup('test')
 
         # ship model to gpu if possible
         device = 'cpu'
