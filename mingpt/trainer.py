@@ -14,9 +14,17 @@ import torch
 import torch.optim as optim
 from torch.optim.lr_scheduler import LambdaLR
 
+# -----------------------------------------------------------------------------
+import os
+if int(os.environ.get('USE_LIGHTNING', 0)):
+    import pytorch_lightning as pl
+else:
+    import mingpt.fake_lightning as pl
+# -----------------------------------------------------------------------------
+
 logger = logging.getLogger(__name__)
 
-class WarmupCosineLearningRateDecay:
+class WarmupCosineLearningRateDecay(pl.Callback):
     """
     based on the number of tokens seen during training will adjust the learning rate:
     1. first it will start at zero and gradually ramp up to full learning rate
@@ -49,7 +57,8 @@ class WarmupCosineLearningRateDecay:
 
 class Trainer:
 
-    def __init__(self, max_epochs, gradient_clip_val=None, ckpt_path=None, callbacks=None):
+    def __init__(self, max_epochs, gpus=0, gradient_clip_val=None, ckpt_path=None, callbacks=None):
+        self.gpus = gpus
         self.max_epochs = max_epochs
         self.gradient_clip_val = gradient_clip_val
         self.ckpt_path = ckpt_path
@@ -63,13 +72,13 @@ class Trainer:
 
     def fit(self, model, train_loader, test_loader=None):
         self.model = model # bind model to the class here
-        self.device = 'cpu'
 
         # ship model to gpu if possible
-        if torch.cuda.is_available():
+        device = 'cpu'
+        if self.gpus > 0 and torch.cuda.is_available():
             logger.info("found CUDA device, shipping model to GPU")
-            self.device = 'cuda'
-            self.model = self.model.to(self.device)
+            device = 'cuda'
+            self.model = self.model.to(device)
 
         # preprare the optimizer
         optimizer = self.model.configure_optimizers()
@@ -85,12 +94,13 @@ class Trainer:
             for it, (x, y) in pbar:
 
                 # place data on the correct device
-                x = x.to(self.device)
-                y = y.to(self.device)
+                x = x.to(device)
+                y = y.to(device)
 
                 # forward the model
                 with torch.set_grad_enabled(is_train):
-                    loss = self.model.training_step((x, y))
+                    result = self.model.training_step((x, y))
+                    loss = result.minimize
                     losses.append(loss.item())
 
                 if is_train:

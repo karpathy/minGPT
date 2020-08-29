@@ -15,9 +15,15 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
-logger = logging.getLogger(__name__)
-
 # -----------------------------------------------------------------------------
+import os
+if int(os.environ.get('USE_LIGHTNING', 0)):
+    import pytorch_lightning as pl
+else:
+    import mingpt.fake_lightning as pl
+# -----------------------------------------------------------------------------
+
+logger = logging.getLogger(__name__)
 
 class CausalSelfAttention(nn.Module):
     """
@@ -83,7 +89,7 @@ class Block(nn.Module):
         x = x + self.mlp(self.ln2(x))
         return x
 
-class GPT(nn.Module):
+class GPT(pl.LightningModule):
     """  the full GPT language model, with a context size of block_size """
 
     def __init__(self,
@@ -208,4 +214,6 @@ class GPT(nn.Module):
         # calculate the loss w.r.t. the desired targets
         loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1))
 
-        return loss
+        result = pl.TrainResult(minimize=loss, checkpoint_on=loss)
+        result.log('train_loss', loss)
+        return result
