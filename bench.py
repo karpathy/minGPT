@@ -15,9 +15,24 @@ from torch.utils.data.dataloader import DataLoader
 import torch.backends.cudnn as cudnn
 
 from mingpt.model import GPT
-from mingpt.trainer import WarmupCosineLearningRateDecay
+from mingpt.lr_decay import WarmupCosineLearningRateDecay
 from mingpt.utils import sample
 
+logger = logging.getLogger(__name__)
+logging.basicConfig(
+        format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
+        datefmt="%m/%d/%Y %H:%M:%S",
+        level=logging.INFO,
+)
+
+# -----------------------------------------------------------------------------
+import os
+if int(os.environ.get('USE_LIGHTNING', 0)):
+    logging.info("USING LIGHTNING!!")
+    import pytorch_lightning as pl
+else:
+    import mingpt.fake_lightning as pl
+    logging.info("using our humble trainer")
 # -----------------------------------------------------------------------------
 
 class CharDataset(Dataset):
@@ -46,15 +61,7 @@ class CharDataset(Dataset):
 parser = argparse.ArgumentParser()
 parser.add_argument('-n', '--num_workers', type=int, default=0, help="number of workers for dataloading")
 args = parser.parse_args()
-#print(vars(args))
 print(args)
-
-logger = logging.getLogger(__name__)
-logging.basicConfig(
-        format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
-        datefmt="%m/%d/%Y %H:%M:%S",
-        level=logging.INFO,
-)
 
 cudnn.benchmark = True
 
@@ -79,17 +86,7 @@ iter_tokens = batch_size * block_size # number of tokens backpropped in one iter
 epoch_tokens = math.ceil(len(train_dataset) / batch_size) * iter_tokens
 lr_decay = WarmupCosineLearningRateDecay(learning_rate=6e-4, warmup_tokens=epoch_tokens//4, final_tokens=nepochs*epoch_tokens)
 
-# :S ...
-if int(os.environ.get('USE_LIGHTNING', 0)):
-    import pytorch_lightning as pl
-    trainer_class = pl.Trainer
-    logging.info("USING LIGHTNING!!")
-else:
-    from mingpt.trainer import Trainer
-    trainer_class = Trainer
-    logging.info("using our humble trainer")
-
-trainer = trainer_class(gpus=1, max_epochs=nepochs, gradient_clip_val=1.0, callbacks=[lr_decay])
+trainer = pl.Trainer(gpus=1, max_epochs=nepochs, gradient_clip_val=1.0, callbacks=[lr_decay])
 trainer.fit(model, train_loader)
 t1 = time.time()
 logging.info("%d epochs took %fs, or %fs/epoch", nepochs, t1 - t0, (t1-t0)/nepochs)
