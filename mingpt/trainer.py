@@ -64,16 +64,10 @@ class WarmupCosineLearningRateDecay:
 
 class Trainer:
 
-    def __init__(self, model, config, callbacks=None):
-        self.model = model
+    def __init__(self, config, callbacks=None):
         self.config = config
+        self.model = None
         self.callbacks = [] if callbacks is None else callbacks
-
-        # take over whatever gpus are on the system
-        self.device = 'cpu'
-        if torch.cuda.is_available():
-            self.device = torch.cuda.current_device()
-            self.model = torch.nn.DataParallel(self.model).to(self.device)
 
     def save_checkpoint(self):
         # DataParallel wrappers keep raw model object in .module attribute
@@ -81,15 +75,23 @@ class Trainer:
         logger.info("saving %s", self.config.ckpt_path)
         torch.save(raw_model.state_dict(), self.config.ckpt_path)
 
-    def fit(self, train_loader, test_loader=None):
-        model, config = self.model, self.config
-        raw_model = model.module if hasattr(self.model, "module") else model
+    def fit(self, model, train_loader, test_loader=None):
+        self.model = model # bind model to the class here
+
+        # prepare the model for training
+        device = 'cpu'
+        if torch.cuda.is_available():
+            device = torch.cuda.current_device()
+            self.model = torch.nn.DataParallel(self.model).to(device)
+
+        # preprare the optimizer
+        raw_model = self.model.module if hasattr(self.model, "module") else self.model
         optimizer = raw_model.configure_optimizers()
         self.optimizers = [optimizer]
 
         def run_epoch(split):
             is_train = split == 'train'
-            model.train(is_train)
+            self.model.train(is_train)
             loader = train_loader if is_train else test_loader
 
             losses = []
@@ -97,21 +99,21 @@ class Trainer:
             for it, (x, y) in pbar:
 
                 # place data on the correct device
-                x = x.to(self.device)
-                y = y.to(self.device)
+                x = x.to(device)
+                y = y.to(device)
 
                 # forward the model
                 with torch.set_grad_enabled(is_train):
-                    logits, loss = model(x, y)
+                    logits, loss = self.model(x, y)
                     loss = loss.mean() # collapse all losses if they are scattered on multiple gpus
                     losses.append(loss.item())
 
                 if is_train:
 
                     # backprop and update the parameters
-                    model.zero_grad()
+                    self.model.zero_grad()
                     loss.backward()
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), config.grad_norm_clip)
+                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.grad_norm_clip)
                     optimizer.step()
 
                     # notify all relevant callbacks that a batch update ended. e.g. a callback may decay learning rate
@@ -129,7 +131,7 @@ class Trainer:
                 return test_loss
 
         best_loss = float('inf')
-        for epoch in range(config.max_epochs):
+        for epoch in range(self.config.max_epochs):
 
             run_epoch('train')
             if test_loader is not None:
