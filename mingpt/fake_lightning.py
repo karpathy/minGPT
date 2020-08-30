@@ -84,17 +84,22 @@ class Trainer:
         logger.info("saving model checkpoint to %s", self.ckpt_path)
         torch.save(self.model.state_dict(), self.ckpt_path)
 
+    def load_checkpoint(self):
+        logger.info("loading the best model checkpoint from %s", self.ckpt_path)
+        state_dict = torch.load(self.ckpt_path)
+        self.model.load_state_dict(state_dict)
+
     def fit(self, model, data_module):
         self.model = model # bind model to the class here
 
         # prepare the dataloaders for outputting batches
         data_module.prepare_data()
+        data_module.setup('train')
         train_loader = data_module.train_dataloader()
-        if train_loader is not None:
-            data_module.setup('fit') # fit... should be 'train'? ;\
+        data_module.setup('val')
+        val_loader = data_module.val_dataloader()
+        data_module.setup('test')
         test_loader = data_module.test_dataloader()
-        if test_loader is not None:
-            data_module.setup('test')
 
         # ship model to gpu if possible
         device = 'cpu'
@@ -108,9 +113,14 @@ class Trainer:
         self.optimizers = [optimizer]
 
         def run_epoch(split):
+            # set model into training or eval mode
             is_train = split == 'train'
             self.model.train(is_train)
-            loader = train_loader if is_train else test_loader
+            loader = {
+                'train': train_loader,
+                'val': val_loader,
+                'test': test_loader,
+            }[split]
 
             losses = []
             pbar = tqdm(enumerate(loader), total=len(loader)) if is_train else enumerate(loader)
@@ -145,19 +155,23 @@ class Trainer:
                     pbar.set_description(f"epoch {epoch+1} iter {it}: train loss {loss.item():.5f}. lr {lr:e}")
 
             if not is_train:
-                test_loss = torch.mean(losses).item()
-                logger.info("test loss: %f", test_loss)
-                return test_loss
+                mean_loss = torch.mean(losses).item()
+                logger.info("val loss: %f", mean_loss)
+                return mean_loss
 
-        best_loss = float('inf')
+        best_val_loss = float('inf')
         for epoch in range(self.max_epochs):
 
             run_epoch('train')
-            if test_loader is not None:
-                test_loss = run_epoch('test')
+            if val_loader is not None:
+                val_loss = run_epoch('val')
 
-            # supports early stopping based on the test loss, or just save always if no test set is provided
-            good_model = test_loader is None or test_loss < best_loss
+            # supports early stopping based on the val loss, or just save always if no val set is provided
+            good_model = val_loader is None or val_loss < best_val_loss
             if self.ckpt_path is not None and good_model:
-                best_loss = test_loss
+                best_val_loss = val_loss
                 self.save_checkpoint()
+
+        # finally eval once on the test set at the end.
+        self.load_checkpoint() # load the best model we had
+        run_epoch('test')

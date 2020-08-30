@@ -36,18 +36,38 @@ else:
 # -----------------------------------------------------------------------------
 
 class CharDataset(Dataset):
+    """
+    e.g. Text8 dataset is often used: http://mattmahoney.net/dc/textdata.html
+    Vocabulary is lowercase English characters and space for total of 27.
+    Training data: First 90M characters.
+    Validation data: First 5M characters out of the last 10M characters.
+    Testing data: Last 5M characters.
+    """
 
-    def __init__(self, data_path, block_size):
+    def __init__(self, data_path, block_size, split, override_vocab=None):
+
+        # load the data and crop it appropriately
         with open(data_path, 'r') as f:
             data = f.read()
-        chars = list(set(data))
-        data_size, vocab_size = len(data), len(chars)
-        logging.info('data has %d characters, %d unique.' % (data_size, vocab_size))
-        self.stoi = { ch:i for i,ch in enumerate(chars) }
-        self.itos = { i:ch for i,ch in enumerate(chars) }
+
+        crop = {
+            'train': (0, 90000000),
+            'val': (90000000, 95000000),
+            'test': (95000000, 100000000),
+        }[split]
+        data = data[crop[0]:crop[1]]
+
+        # build a vocabulary from data or inherit it
+        vocab = sorted(list(set(data))) if override_vocab is None else override_vocab
+        data_size, vocab_size = len(data), len(vocab)
+        logging.info('data of crop %s has %d characters, vocab of size %d.' % (str(crop), data_size, vocab_size))
+
+        self.stoi = { ch:i for i,ch in enumerate(vocab) }
+        self.itos = { i:ch for i,ch in enumerate(vocab) }
         self.block_size = block_size
         self.vocab_size = vocab_size
         self.data = data
+        self.vocab = vocab
 
     def __len__(self):
         return math.ceil(len(self.data) / self.block_size)
@@ -68,17 +88,36 @@ class CharDataModule(pl.LightningDataModule):
         self.pin_memory = pin_memory
 
     def prepare_data(self): # called only on 1 GPU/machine
-        pass
+        pass # could technically download text8 here...
 
     def setup(self, stage): # called for every GPU/machine
-        pass
+        if stage == 'train' or stage == 'fit':
+            self.train_dataset = CharDataset('text8', self.block_size, 'train')
+        elif stage == 'val':
+            self.val_dataset = CharDataset('text8', self.block_size, 'val', override_vocab=self.train_dataset.vocab)
+        elif stage == 'test':
+            self.test_dataset = CharDataset('text8', self.block_size, 'test', override_vocab=self.train_dataset.vocab)
+        else:
+            raise ValueError(f"stage {stage} is not recognized")
 
     def train_dataloader(self):
-        train_dataset = CharDataset('input.txt', self.block_size)
-        train_loader = DataLoader(train_dataset, batch_size=self.batch_size,
-                                  shuffle=True, pin_memory=bool(self.pin_memory),
-                                  num_workers=self.num_workers)
-        return train_loader
+        loader = DataLoader(self.train_dataset, batch_size=self.batch_size,
+                            shuffle=True, pin_memory=bool(self.pin_memory),
+                            num_workers=self.num_workers)
+        return loader
+
+    def val_dataloader(self):
+        loader = DataLoader(self.val_dataset, batch_size=self.batch_size,
+                            shuffle=False, pin_memory=bool(self.pin_memory),
+                            num_workers=self.num_workers)
+        return loader
+
+    def test_dataloader(self):
+        loader = DataLoader(self.test_dataset, batch_size=self.batch_size,
+                            shuffle=False, pin_memory=bool(self.pin_memory),
+                            num_workers=self.num_workers)
+        return loader
+
 
 # -----------------------------------------------------------------------------
 
@@ -94,7 +133,7 @@ print(vars(args))
 
 logging.info("preparing the data module")
 dm = CharDataModule(batch_size=args.batch_size, block_size=args.block_size, num_workers=args.num_workers)
-train_dataset = CharDataset('input.txt', args.block_size)
+train_dataset = CharDataset('text8', args.block_size, 'train')
 
 logging.info("creating the model")
 model = GPT(train_dataset.vocab_size, args.block_size, n_layer=4, n_head=4, n_embd=128)
