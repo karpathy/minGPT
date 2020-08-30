@@ -87,12 +87,14 @@ class CharDataModule(pl.LightningDataModule):
         self.num_workers = num_workers
         self.pin_memory = pin_memory
 
+        self.train_dataset = CharDataset('text8', self.block_size, 'train')
+
     def prepare_data(self): # called only on 1 GPU/machine
         pass # could technically download text8 here...
 
     def setup(self, stage): # called for every GPU/machine
         if stage == 'train' or stage == 'fit':
-            self.train_dataset = CharDataset('text8', self.block_size, 'train')
+            pass # nothing to do, the train_dataset is initialized in the constructor
         elif stage == 'val':
             self.val_dataset = CharDataset('text8', self.block_size, 'val', override_vocab=self.train_dataset.vocab)
         elif stage == 'test':
@@ -133,14 +135,13 @@ print(vars(args))
 
 logging.info("preparing the data module")
 dm = CharDataModule(batch_size=args.batch_size, block_size=args.block_size, num_workers=args.num_workers)
-train_dataset = CharDataset('text8', args.block_size, 'train')
 
 logging.info("creating the model")
-model = GPT(train_dataset.vocab_size, args.block_size, n_layer=4, n_head=4, n_embd=128)
+model = GPT(dm.train_dataset.vocab_size, args.block_size, n_layer=4, n_head=4, n_embd=128)
 
 logging.info("preparing the learning rate schedule")
 iter_tokens = args.batch_size * args.block_size # number of tokens backpropped in one iteration
-epoch_tokens = math.ceil(len(train_dataset) / args.batch_size) * iter_tokens
+epoch_tokens = math.ceil(len(dm.train_dataset) / args.batch_size) * iter_tokens
 lr_decay = WarmupCosineLearningRateDecay(learning_rate=6e-4, warmup_tokens=epoch_tokens//4,
                                          final_tokens=args.num_epochs*epoch_tokens)
 
@@ -153,7 +154,7 @@ logging.info("%d epochs took %fs, or %fs/epoch", args.num_epochs, t1 - t0, (t1-t
 
 logging.info("sampling:")
 context = "O God, O God!"
-x = torch.tensor([train_dataset.stoi[s] for s in context], dtype=torch.long)[None,...].to(model.device)
+x = torch.tensor([dm.train_dataset.stoi[s] for s in context], dtype=torch.long)[None,...].to(model.device)
 y = sample(model, x, 100, temperature=1.0, sample=True, top_k=None)[0]
-completion = ''.join([train_dataset.itos[int(i)] for i in y])
+completion = ''.join([dm.train_dataset.itos[int(i)] for i in y])
 print(completion)
