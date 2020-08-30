@@ -142,12 +142,16 @@ class Trainer:
 
                 if is_train:
 
-                    # backprop and update the parameters
-                    self.model.zero_grad()
+                    # reset gradient
+                    for param in self.model.parameters():
+                        param.grad = None # a faster alternative to model.zero_grad()
+                    # backward pass
                     loss.backward()
+                    # clip the gradient to mitigate loss explosions
                     if self.gradient_clip_val is not None:
                         torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.gradient_clip_val)
-                    optimizer.step()
+                    # update all parameters
+                    optimizer.step() # todo: use fused optimizer
 
                     # notify all relevant callbacks that a batch update ended. e.g. a callback may decay learning rate
                     for cb in self.callbacks:
