@@ -17,21 +17,6 @@ logger = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
 
-class Result:
-        """ very thin wrapper around a result of a train/val/test step of the model """
-        def __init__(self, minimize=None, checkpoint_on=None):
-            self.minimize = minimize
-            self.checkpoint_on = checkpoint_on
-
-        def log(self, key, val):
-            setattr(self, key, val)
-
-class TrainResult(Result):
-    pass
-
-class EvalResult(Result):
-    pass
-
 class LightningModule(nn.Module):
 
     def load_from_checkpoint(self, checkpoint_path):
@@ -87,11 +72,9 @@ class Trainer:
             with torch.no_grad():
                 if split == 'val':
                     result = self.model.validation_step((x, y))
-                    loss = result.val_loss
                 elif split == 'test':
                     result = self.model.test_step((x, y))
-                    loss = result.test_loss
-                losses.append(loss.item())
+                losses.append(result['loss'].item())
         mean_loss = torch.mean(torch.tensor(losses)).item()
         logger.info("%s loss: %f", split, mean_loss)
         return mean_loss
@@ -130,7 +113,7 @@ class Trainer:
 
                 # forward the model
                 result = self.model.training_step((x, y))
-                loss = result.minimize
+                loss = result['loss']
 
                 # reset gradient
                 for param in self.model.parameters():
