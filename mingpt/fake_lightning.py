@@ -18,11 +18,7 @@ logger = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 
 class LightningModule(nn.Module):
-
-    def load_from_checkpoint(self, checkpoint_path):
-        logger.info("loading the best model checkpoint from %s", checkpoint_path)
-        state_dict = torch.load(checkpoint_path)
-        self.load_state_dict(state_dict)
+    pass
 
 class Callback:
     pass
@@ -62,7 +58,8 @@ class Trainer:
     def load_checkpoint(self):
         ckpt_path = os.path.join(self.default_root_dir, 'model.pt')
         logger.info("loading model from %s", ckpt_path)
-        self.model.load_from_checkpoint(ckpt_path)
+        state_dict = torch.load(ckpt_path)
+        self.model.load_state_dict(state_dict)
 
     def eval_split_(self, dataloader, split):
 
