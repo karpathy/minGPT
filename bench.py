@@ -25,6 +25,8 @@ logging.basicConfig(
         level=logging.INFO,
 )
 
+torch.backends.cudnn.benchmark = True # autotune kernels
+
 # -----------------------------------------------------------------------------
 import os
 if int(os.environ.get('USE_LIGHTNING', 0)):
@@ -35,7 +37,7 @@ else:
     logging.info("using our humble trainer")
 # -----------------------------------------------------------------------------
 
-class CharDataset(Dataset):
+class Text8Dataset(Dataset):
     """
     e.g. Text8 dataset is often used: http://mattmahoney.net/dc/textdata.html
     Vocabulary is lowercase English characters and space for total of 27.
@@ -44,18 +46,15 @@ class CharDataset(Dataset):
     Testing data: Last 5M characters.
     """
 
-    def __init__(self, data_path, block_size, split, override_vocab=None):
+    def __init__(self, data_path, block_size, crop=None, override_vocab=None):
 
         # load the data and crop it appropriately
         with open(data_path, 'r') as f:
-            data = f.read()
-
-        crop = {
-            'train': (0, 90000000),
-            'val': (90000000, 95000000),
-            'test': (95000000, 100000000),
-        }[split]
-        data = data[crop[0]:crop[1]]
+            if crop is None:
+                data = f.read()
+            else:
+                f.seek(crop[0])
+                data = f.read(crop[1])
 
         # build a vocabulary from data or inherit it
         vocab = sorted(list(set(data))) if override_vocab is None else override_vocab
@@ -70,56 +69,19 @@ class CharDataset(Dataset):
         self.vocab = vocab
 
     def __len__(self):
-        return math.ceil(len(self.data) / self.block_size)
+        return len(self.data) // self.block_size
 
     def __getitem__(self, idx):
-        i = np.random.randint(0, len(self.data) - (self.block_size + 1))
-        chunk = self.data[i:i+self.block_size+1]
-        dix = torch.tensor([self.stoi[s] for s in chunk], dtype=torch.long)
+        # attempt to fetch a chunk of (block_size + 1) items, but (block_size) will work too
+        chunk = self.data[idx*self.block_size : min(len(self.data), (idx+1)*self.block_size + 1)]
+        # map the string into a sequence of integers
+        ixes = [self.stoi[s] for s in chunk]
+        # if stars align (last idx and len(self.data) % self.block_size == 0), pad with -100, to skip training at the last position
+        if len(ixes) < self.block_size + 1:
+            assert len(ixes) == self.block_size # i believe this is the only way this could happen, make sure
+            ixes.append(-100)
+        dix = torch.tensor(ixes, dtype=torch.long)
         return dix[:-1], dix[1:]
-
-class CharDataModule(pl.LightningDataModule):
-
-    def __init__(self, batch_size=64, block_size=128, pin_memory=0, num_workers=0):
-        super().__init__()
-        self.batch_size = batch_size
-        self.block_size = block_size
-        self.num_workers = num_workers
-        self.pin_memory = pin_memory
-
-        self.train_dataset = CharDataset('text8', self.block_size, 'train')
-
-    def prepare_data(self): # called only on 1 GPU/machine
-        pass # could technically download text8 here...
-
-    def setup(self, stage): # called for every GPU/machine
-        if stage == 'train' or stage == 'fit':
-            pass # nothing to do, the train_dataset is initialized in the constructor
-        elif stage == 'val':
-            self.val_dataset = CharDataset('text8', self.block_size, 'val', override_vocab=self.train_dataset.vocab)
-        elif stage == 'test':
-            self.test_dataset = CharDataset('text8', self.block_size, 'test', override_vocab=self.train_dataset.vocab)
-        else:
-            raise ValueError(f"stage {stage} is not recognized")
-
-    def train_dataloader(self):
-        loader = DataLoader(self.train_dataset, batch_size=self.batch_size,
-                            shuffle=True, pin_memory=bool(self.pin_memory),
-                            num_workers=self.num_workers)
-        return loader
-
-    def val_dataloader(self):
-        loader = DataLoader(self.val_dataset, batch_size=self.batch_size,
-                            shuffle=False, pin_memory=bool(self.pin_memory),
-                            num_workers=self.num_workers)
-        return loader
-
-    def test_dataloader(self):
-        loader = DataLoader(self.test_dataset, batch_size=self.batch_size,
-                            shuffle=False, pin_memory=bool(self.pin_memory),
-                            num_workers=self.num_workers)
-        return loader
-
 
 # -----------------------------------------------------------------------------
 
@@ -131,32 +93,48 @@ parser.add_argument('-n', '--num-workers', type=int, default=0, help="number of 
 parser.add_argument('-g', '--num-gpus', type=int, default=1, help="number of gpus to train on")
 parser.add_argument('-p', '--pin-memory', type=int, default=1, help="pin memory on dataloaders?")
 parser.add_argument('-r', '--precision', type=int, default=32, help="fp precision to use, e.g. 32/16")
+parser.add_argument('-o', '--default_root_dir', type=str, default='.', help="best model checkpoint will be written at this location")
 args = parser.parse_args()
 print(vars(args))
 
-logging.info("preparing the data module")
-dm = CharDataModule(batch_size=args.batch_size, block_size=args.block_size, num_workers=args.num_workers)
+logging.info("preparing the data loaders")
+# NOTE: REDUCED DATA SIZE FOR DEBUGGING, TODO CLEAN BEFORE MERGE IF EVER
+train_dataset = Text8Dataset('text8', args.block_size, crop=(0,         int(1e6)))
+val_dataset   = Text8Dataset('text8', args.block_size, crop=(int(90e6), int(1e5)), override_vocab=train_dataset.vocab)
+test_dataset  = Text8Dataset('text8', args.block_size, crop=(int(95e6), int(1e5)), override_vocab=train_dataset.vocab)
+common = {'batch_size': args.batch_size, 'pin_memory': bool(args.pin_memory), 'num_workers': args.num_workers}
+train_dataloader  = DataLoader(train_dataset, shuffle=True, **common)
+val_dataloader  = DataLoader(val_dataset, shuffle=False, **common)
+test_dataloader  = DataLoader(test_dataset, shuffle=False, **common)
 
 logging.info("creating the model")
-model = GPT(dm.train_dataset.vocab_size, args.block_size, n_layer=4, n_head=4, n_embd=128)
+model = GPT(train_dataset.vocab_size, args.block_size, n_layer=6, n_head=8, n_embd=256)
 
 logging.info("preparing the learning rate schedule")
 iter_tokens = args.batch_size * args.block_size # number of tokens backpropped in one iteration
-epoch_tokens = math.ceil(len(dm.train_dataset) / args.batch_size) * iter_tokens
-lr_decay = WarmupCosineLearningRateDecay(learning_rate=6e-4, warmup_tokens=epoch_tokens//4,
+epoch_tokens = math.ceil(len(train_dataset) / args.batch_size) * iter_tokens
+lr_decay = WarmupCosineLearningRateDecay(learning_rate=6e-4, warmup_tokens=epoch_tokens//2,
                                          final_tokens=args.num_epochs*epoch_tokens)
 
 t0 = time.time()
 logging.info("training...")
 trainer = pl.Trainer(gpus=args.num_gpus, max_epochs=args.num_epochs, gradient_clip_val=1.0, callbacks=[lr_decay],
-                     precision=args.precision)
-trainer.fit(model, dm)
+                     precision=args.precision, default_root_dir=args.default_root_dir)
+trainer.fit(model, train_dataloader, val_dataloader)
 t1 = time.time()
 logging.info("%d epochs took %fs, or %fs/epoch", args.num_epochs, t1 - t0, (t1-t0)/args.num_epochs)
 
+# todo below: I don't yet understand the Lightning checkpoint schema
+# logging.info("testing...")
+# ckpt_path = os.path.join(args.default_root_dir, 'model.pt')
+# model.load_from_checkpoint(ckpt_path) # load the best checkpoint we found
+# trainer.test(test_dataloader=test_dataloader)
+
 logging.info("sampling:")
-context = "O God, O God!"
-x = torch.tensor([dm.train_dataset.stoi[s] for s in context], dtype=torch.long)[None,...].to(model.device)
-y = sample(model, x, 100, temperature=1.0, sample=True, top_k=None)[0]
-completion = ''.join([dm.train_dataset.itos[int(i)] for i in y])
+context = "anarchism originated as a term of"
+x = torch.tensor([train_dataset.stoi[s] for s in context], dtype=torch.long)[None,...]
+if next(model.parameters()).is_cuda:
+    x = x.cuda()
+y = sample(model, x, 200, temperature=1.0, sample=True, top_k=None)[0]
+completion = ''.join([train_dataset.itos[int(i)] for i in y])
 print(completion)

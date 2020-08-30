@@ -206,7 +206,7 @@ class GPT(pl.LightningModule):
 
         return logits
 
-    def training_step(self, batch, batch_idx=None):
+    def step_(self, split, batch, batch_idx=None):
         idx, targets = batch
 
         # forward pass the inputs
@@ -214,6 +214,21 @@ class GPT(pl.LightningModule):
         # calculate the loss w.r.t. the desired targets
         loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1))
 
-        result = pl.TrainResult(minimize=loss, checkpoint_on=loss)
-        result.log('train_loss', loss)
+        if split == 'train':
+            result = pl.TrainResult(minimize=loss)
+        elif split == 'val':
+            result = pl.EvalResult(checkpoint_on=loss)
+        elif split == 'test':
+            result = pl.EvalResult()
+        result.log(f'{split}_loss', loss)
+
         return result
+
+    def training_step(self, *args, **kwargs):
+        return self.step_('train', *args, **kwargs)
+
+    def validation_step(self, *args, **kwargs):
+        return self.step_('val', *args, **kwargs)
+
+    def test_step(self, *args, **kwargs):
+        return self.step_('test', *args, **kwargs)
