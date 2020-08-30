@@ -68,7 +68,8 @@ very basic Trainer class that will only train the model on up to one GPU.
 
 class Trainer:
 
-    def __init__(self, max_epochs, gpus=0, gradient_clip_val=None, ckpt_path=None, callbacks=None):
+    def __init__(self, max_epochs, gpus=0, gradient_clip_val=None, ckpt_path=None, callbacks=None,
+                 precision=32, **kwargs):
         self.gpus = gpus
         self.max_epochs = max_epochs
         self.gradient_clip_val = gradient_clip_val
@@ -78,6 +79,9 @@ class Trainer:
 
         if self.gpus > 1:
             logger.error("This simple Trainer does not support > 1 GPUs, will just use one.")
+
+        if precision != 32:
+            logger.error("This simple Trainer does not support non-fp32 precision, will use fp32")
 
     def save_checkpoint(self):
         # DataParallel wrappers keep raw model object in .module attribute

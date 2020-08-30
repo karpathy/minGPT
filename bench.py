@@ -130,6 +130,7 @@ parser.add_argument('-l', '--block-size', type=int, default=128, help="block siz
 parser.add_argument('-n', '--num-workers', type=int, default=0, help="number of workers for dataloading")
 parser.add_argument('-g', '--num-gpus', type=int, default=1, help="number of gpus to train on")
 parser.add_argument('-p', '--pin-memory', type=int, default=1, help="pin memory on dataloaders?")
+parser.add_argument('-r', '--precision', type=int, default=32, help="fp precision to use, e.g. 32/16")
 args = parser.parse_args()
 print(vars(args))
 
@@ -147,7 +148,8 @@ lr_decay = WarmupCosineLearningRateDecay(learning_rate=6e-4, warmup_tokens=epoch
 
 t0 = time.time()
 logging.info("training...")
-trainer = pl.Trainer(gpus=args.num_gpus, max_epochs=args.num_epochs, gradient_clip_val=1.0, callbacks=[lr_decay])
+trainer = pl.Trainer(gpus=args.num_gpus, max_epochs=args.num_epochs, gradient_clip_val=1.0, callbacks=[lr_decay],
+                     precision=args.precision)
 trainer.fit(model, dm)
 t1 = time.time()
 logging.info("%d epochs took %fs, or %fs/epoch", args.num_epochs, t1 - t0, (t1-t0)/args.num_epochs)
