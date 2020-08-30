@@ -72,7 +72,7 @@ class Trainer:
         for it, (x, y) in enumerate(dataloader):
             # place data on the correct device
             if use_gpu:
-                x, y = x.cuda(), y.cuda()
+                x, y = x.cuda(), y.cuda(non_blocking=True)
             # forward the model
             with torch.no_grad():
                 if split == 'val':
@@ -116,7 +116,7 @@ class Trainer:
 
                 # place data on the correct device
                 if use_gpu:
-                    x, y = x.cuda(), y.cuda()
+                    x, y = x.cuda(), y.cuda(non_blocking=True)
 
                 # forward the model
                 result = self.model.training_step((x, y))
