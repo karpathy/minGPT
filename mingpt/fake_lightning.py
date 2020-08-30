@@ -59,6 +59,11 @@ class Trainer:
         logger.info("saving model checkpoint to %s", ckpt_path)
         torch.save(self.model.state_dict(), ckpt_path)
 
+    def load_checkpoint(self):
+        ckpt_path = os.path.join(self.default_root_dir, 'model.pt')
+        logger.info("loading model from %s", ckpt_path)
+        self.model.load_from_checkpoint(ckpt_path)
+
     def eval_split_(self, dataloader, split):
 
         self.model.eval()
@@ -76,11 +81,13 @@ class Trainer:
                     result = self.model.test_step((x, y))
                 losses.append(result['loss'].item())
         mean_loss = torch.mean(torch.tensor(losses)).item()
+
         logger.info("%s loss: %f", split, mean_loss)
         return mean_loss
 
-    def test(self, test_dataloader):
-        return self.eval_split_(test_dataloader, 'test')
+    def test(self, test_dataloaders): # note we expect a list of dataloaders here
+        self.load_checkpoint() # load the best checkpoint we found during optimization
+        return self.eval_split_(test_dataloaders, 'test')
 
     def val(self, val_dataloader):
         return self.eval_split_(val_dataloader, 'val')

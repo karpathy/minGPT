@@ -105,7 +105,6 @@ test_dataset  = Text8Dataset('text8', args.block_size, crop=(int(95e6), int(1e5)
 common = {'batch_size': args.batch_size, 'pin_memory': bool(args.pin_memory), 'num_workers': args.num_workers}
 train_dataloader  = DataLoader(train_dataset, shuffle=True, **common)
 val_dataloader  = DataLoader(val_dataset, shuffle=False, **common)
-test_dataloader  = DataLoader(test_dataset, shuffle=False, **common)
 
 logging.info("creating the model")
 model = GPT(train_dataset.vocab_size, args.block_size, n_layer=6, n_head=8, n_embd=256)
@@ -124,11 +123,9 @@ trainer.fit(model, train_dataloader, val_dataloader)
 t1 = time.time()
 logging.info("%d epochs took %fs, or %fs/epoch", args.num_epochs, t1 - t0, (t1-t0)/args.num_epochs)
 
-# todo below: I don't yet understand the Lightning checkpoint schema
-# logging.info("testing...")
-# ckpt_path = os.path.join(args.default_root_dir, 'model.pt')
-# model.load_from_checkpoint(ckpt_path) # load the best checkpoint we found
-# trainer.test(test_dataloader=test_dataloader)
+logging.info("testing...")
+test_dataloader = DataLoader(test_dataset, shuffle=False, **common)
+trainer.test(test_dataloaders=test_dataloader)
 
 logging.info("sampling:")
 context = "anarchism originated as a term of"
