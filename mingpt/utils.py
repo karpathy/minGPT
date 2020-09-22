@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
-import tqdm
+import tqdm.auto
 
 def set_seed(seed):
     random.seed(seed)
@@ -27,7 +27,7 @@ def sample(model, x, steps, temperature=1.0, sample=False, top_k=None):
     """
     block_size = model.get_block_size()
     model.eval()
-    for k in tqdm.tqdm(range(steps)):
+    for k in tqdm.auto.tqdm(range(steps)):
         x_cond = x if x.size(1) <= block_size else x[:, -block_size:] # crop context if needed
         logits, _ = model(x_cond)
         # pluck the logits at the final step and scale by temperature
