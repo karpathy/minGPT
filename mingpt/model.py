@@ -116,7 +116,6 @@ class GPT(nn.Module):
         self.ln_f = nn.LayerNorm(config.n_embd)
         self.head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
         self.time_weighting = nn.Parameter(torch.ones(self.n_head, config.block_size, config.block_size)) # Test <=======================================================
-        self.time_shift = nn.ZeroPad2d((0,0,1,0)) # Test <=======================================================
         self.block_size = config.block_size
         self.apply(self._init_weights)
 
