@@ -11,13 +11,10 @@ import math
 import logging
 
 import torch
-
 import torch.nn as nn
 from torch.nn import functional as F
-import pytorch_lightning as pl
 
 logger = logging.getLogger(__name__)
-
 
 class GPTConfig:
     """ base GPT config, params common to all GPT versions """
@@ -40,8 +37,8 @@ class GPT1Config(GPTConfig):
 class CausalSelfAttention(nn.Module):
     """
     A vanilla multi-head masked self-attention layer with a projection at the end.
-    I believe I could have just used torch.nn.MultiheadAttention but their documentation
-    is all but absent and code ugly so I don't trust it, rolling my own here.
+    It is possible to use torch.nn.MultiheadAttention here but I am including an
+    explicit implementation here to show that there is nothing too scary here.
     """
 
     def __init__(self, config):
@@ -60,14 +57,9 @@ class CausalSelfAttention(nn.Module):
         self.register_buffer("mask", torch.tril(torch.ones(config.block_size, config.block_size))
                                      .view(1, 1, config.block_size, config.block_size))
         self.n_head = config.n_head
-        self.time_weighting = nn.Parameter(torch.ones(self.n_head, config.block_size, config.block_size)) # Test
-        self.time_shift = nn.ZeroPad2d((0,0,1,0)) # Test
 
     def forward(self, x, layer_past=None):
         B, T, C = x.size()
-        
-        # time-mixing
-        x = torch.cat([self.time_shift(x)[:,:T,:C//2], x[:,:T,C//2:]], dim=2) # Test
 
         # calculate query, key, values for all heads in batch and move head forward to be the batch dim
         k = self.key(x).view(B, T, self.n_head, C // self.n_head).transpose(1, 2) # (B, nh, T, hs)
@@ -78,7 +70,6 @@ class CausalSelfAttention(nn.Module):
         att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
         att = att.masked_fill(self.mask[:,:,:T,:T] == 0, float('-inf'))
         att = F.softmax(att, dim=-1)
-        att = att * self.time_weighting[:,:T,:T] # time-weighting # Test
         att = self.attn_drop(att)
         y = att @ v # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
         y = y.transpose(1, 2).contiguous().view(B, T, C) # re-assemble all head outputs side by side
@@ -107,43 +98,29 @@ class Block(nn.Module):
         x = x + self.mlp(self.ln2(x))
         return x
 
-
-class GPT(pl.LightningModule):
+class GPT(nn.Module):
     """  the full GPT language model, with a context size of block_size """
-    def __init__(self,
-                 vocab_size,
-                 weight_decay=0.1,
-                 betas=(0.9, 0.95),
-                 learning_rate=3e-4,
-                 n_embd=768,
-                 block_size=128,
-                 embd_pdrop=0.1,
-                 n_layer=12,
-                 n_head=4,
-                 resid_pdrop=0.1,
-                 attn_pdrop=0.1
-                 ):
-        super().__init__()
-        # auto creates self.hparams from the method signature
-        self.save_hyperparameters()
 
-        # in lightning the "config" is hparams (for hyperparameters)
-        self.config = self.hparams
+    def __init__(self, config):
+        super().__init__()
 
         # input embedding stem
-        self.tok_emb = nn.Embedding(vocab_size, n_embd)
-        self.pos_emb = nn.Parameter(torch.zeros(1, block_size, n_embd))
-        self.drop = nn.Dropout(embd_pdrop)
+        self.tok_emb = nn.Embedding(config.vocab_size, config.n_embd)
+        self.pos_emb = nn.Parameter(torch.zeros(1, config.block_size, config.n_embd))
+        self.drop = nn.Dropout(config.embd_pdrop)
         # transformer
-        self.blocks = nn.Sequential(*[Block(self.config) for _ in range(self.config.n_layer)])
+        self.blocks = nn.Sequential(*[Block(config) for _ in range(config.n_layer)])
         # decoder head
-        self.ln_f = nn.LayerNorm(self.config.n_embd)
-        self.head = nn.Linear(self.config.n_embd, self.config.vocab_size, bias=False)
+        self.ln_f = nn.LayerNorm(config.n_embd)
+        self.head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
 
-        self.block_size = self.config.block_size
+        self.block_size = config.block_size
         self.apply(self._init_weights)
 
         logger.info("number of parameters: %e", sum(p.numel() for p in self.parameters()))
+
+    def get_block_size(self):
+        return self.block_size
 
     def _init_weights(self, module):
         if isinstance(module, (nn.Linear, nn.Embedding)):
@@ -154,22 +131,53 @@ class GPT(pl.LightningModule):
             module.bias.data.zero_()
             module.weight.data.fill_(1.0)
 
-    def get_block_size(self):
-        return self.block_size
+    def configure_optimizers(self, train_config):
+        """
+        This long function is unfortunately doing something very simple and is being very defensive:
+        We are separating out all parameters of the model into two buckets: those that will experience
+        weight decay for regularization and those that won't (biases, and layernorm/embedding weights).
+        We are then returning the PyTorch optimizer object.
+        """
 
-    def configure_optimizers(self):
-        # create the optimizer
-        no_decay = ["bias", "LayerNorm.weight"]
-        params_decay = [p for n, p in self.named_parameters() if not any(nd in n for nd in no_decay)]
-        params_nodecay = [p for n, p in self.named_parameters() if any(nd in n for nd in no_decay)]
+        # separate out all parameters to those that will and won't experience regularizing weight decay
+        decay = set()
+        no_decay = set()
+        whitelist_weight_modules = (torch.nn.Linear, )
+        blacklist_weight_modules = (torch.nn.LayerNorm, torch.nn.Embedding)
+        for mn, m in self.named_modules():
+            for pn, p in m.named_parameters():
+                fpn = '%s.%s' % (mn, pn) if mn else pn # full param name
+
+                if pn.endswith('bias'):
+                    # all biases will not be decayed
+                    no_decay.add(fpn)
+                elif pn.endswith('weight') and isinstance(m, whitelist_weight_modules):
+                    # weights of whitelist modules will be weight decayed
+                    decay.add(fpn)
+                elif pn.endswith('weight') and isinstance(m, blacklist_weight_modules):
+                    # weights of blacklist modules will NOT be weight decayed
+                    no_decay.add(fpn)
+
+        # special case the position embedding parameter in the root GPT module as not decayed
+        no_decay.add('pos_emb')
+
+        # validate that we considered every parameter
+        param_dict = {pn: p for pn, p in self.named_parameters()}
+        inter_params = decay & no_decay
+        union_params = decay | no_decay
+        assert len(inter_params) == 0, "parameters %s made it into both decay/no_decay sets!" % (str(inter_params), )
+        assert len(param_dict.keys() - union_params) == 0, "parameters %s were not separated into either decay/no_decay set!" \
+                                                    % (str(param_dict.keys() - union_params), )
+
+        # create the pytorch optimizer object
         optim_groups = [
-            {"params": params_decay, "weight_decay": self.hparams.weight_decay},
-            {"params": params_nodecay, "weight_decay": 0.0},
+            {"params": [param_dict[pn] for pn in sorted(list(decay))], "weight_decay": train_config.weight_decay},
+            {"params": [param_dict[pn] for pn in sorted(list(no_decay))], "weight_decay": 0.0},
         ]
-        optimizer = torch.optim.AdamW(optim_groups, lr=self.hparams.learning_rate, betas=self.hparams.betas)
+        optimizer = torch.optim.AdamW(optim_groups, lr=train_config.learning_rate, betas=train_config.betas)
         return optimizer
 
-    def forward(self, idx):
+    def forward(self, idx, targets=None):
         b, t = idx.size()
         assert t <= self.block_size, "Cannot forward, model block size is exhausted."
 
@@ -180,19 +188,10 @@ class GPT(pl.LightningModule):
         x = self.blocks(x)
         x = self.ln_f(x)
         logits = self.head(x)
-        return logits
-
-    def training_step(self, batch, batch_idx):
-        idx, targets = batch
-        # same action as inference
-        logits = self(idx)
 
         # if we are given some desired targets also calculate the loss
         loss = None
         if targets is not None:
             loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1))
 
-        result = pl.TrainResult(minimize=loss, checkpoint_on=loss)
-        result.log('train_loss', loss)
-        return result
-
+        return logits, loss
