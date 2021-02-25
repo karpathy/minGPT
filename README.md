@@ -22,8 +22,8 @@ This code is simple enough to just hack inline, not "used", but current API look
 
 # you're on your own to define a class that returns individual examples as PyTorch LongTensors
 from torch.utils.data import Dataset
-train_dataset = MyDataset(...)
-test_dataset = MyDataset(...)
+train_dataset = Dataset(...)
+test_dataset = Dataset(...)
 
 # construct a GPT model
 from mingpt.model import GPT, GPTConfig
