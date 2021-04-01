@@ -10,7 +10,7 @@ The core minGPT "library" (hah) is two files: `mingpt/model.py` contains the act
 - `play_math.ipynb` trains a GPT focused on addition (inspired by the addition section in the GPT-3 paper)
 - `play_char.ipynb` trains a GPT to be a character-level language model on arbitrary text, similar to my older char-rnn but with a transformer instead of an RNN
 - `play_image.ipynb` trains a GPT on (small) images (CIFAR-10), showing that we can model images just as text, as both can be reduced to just a sequence of integers
-- `play_words.ipynb` a BPE version that does not yet exist
+- `play_words.ipynb` trains a GPT to translate modern English to Shakespeare English. Uses a BPE tokenization for building word vocabularies
 
 With a bpe encoder, distributed training and maybe fp16 this implementation may be able to reproduce GPT-1/GPT-2 results, though I haven't tried $$$. GPT-3 is likely out of reach as my understanding is that it does not fit into GPU memory and requires a more careful model-parallel treatment.
 
