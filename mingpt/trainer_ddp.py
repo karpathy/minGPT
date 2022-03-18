@@ -64,7 +64,15 @@ class TrainerDDP:
         raw_model = ddp_model.module if hasattr(ddp_model, "module") else ddp_model
         logger.info("saving %s", self.config.ckpt_path)
         torch.save(raw_model.state_dict(), self.config.ckpt_path)
-    
+
+    def load_checkpoint(self, model=None, map_location='cuda'):
+        if model is None:
+            self.model.load_state_dict(torch.load(self.config.ckpt_path, map_location=map_location))
+            return self.model
+        else:
+            model.load_state_dict(torch.load(self.config.ckpt_path, map_location=map_location))
+            return model
+
     def train(self, rank:int, world_size:int):
         model, config = self.model, self.config
         dist_init(rank, world_size, port=self.port)

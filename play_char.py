@@ -101,9 +101,10 @@ if __name__ == '__main__':
     mp.spawn(trainer_ddp.train, args=(world_size,), nprocs = world_size, join=True)
    
     # sample from the model to check if it's decent. sample on the GPU.
+    model = trainer_ddp.load_checkpoint(model=model, map_location='cuda')
     from mingpt.utils import sample
     sampling_device = torch.cuda.current_device() if torch.cuda.is_available() else 'cpu'
-    context = "A rose by any other name would smell as sweet"
+    context = "What's in a name anyway? It's a name attached to an idea. A rose by any other name would smell as sweet"
     model = model.to(sampling_device)
     x = torch.tensor([train_dataset.stoi[s] for s in context], dtype=torch.long)[None,...].to(sampling_device)
     y = sample(model, x, 2000, temperature=1.0, sample=True, top_k=10)[0]
