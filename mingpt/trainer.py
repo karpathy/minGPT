@@ -61,7 +61,7 @@ class Trainer:
         raw_model = model.module if hasattr(self.model, "module") else model
         optimizer = raw_model.configure_optimizers(config)
 
-        def run_epoch(loader, is_train=True):
+        def run_epoch(loader, is_train):
             model.train(is_train)
 
             losses = []
@@ -130,7 +130,7 @@ class Trainer:
             )
 
         for epoch in range(config.max_epochs):
-            run_epoch(train_loader)
+            run_epoch(train_loader, is_train=True)
             if self.test_dataset is not None:
                 test_loss = run_epoch(test_loader, is_train=False)
 
