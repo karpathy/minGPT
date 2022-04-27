@@ -1,0 +1,21 @@
+name: Run Tests
+
+on:
+  push:
+  schedule:
+    - cron: "0 13 * * 1" # Every Monday at 1PM UTC (9AM EST)
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python 3.7
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.7
+    - name: Install Python dependencies
+      run: |
+        pip install torch pytest
+    - name: Run Tests
+      run: python -m pytest tests
