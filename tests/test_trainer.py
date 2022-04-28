@@ -78,7 +78,7 @@ class TrainerTester(unittest.TestCase):
 
     def test_save_checkpoint(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
-            # create a temporary dir where model will be saved
+            # create a temporary path where model will be saved
             ckpt_path = f"{tmp_dir}/my_model"
 
             # create a model with "tiny" hyperparams
