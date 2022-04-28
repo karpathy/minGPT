@@ -77,15 +77,16 @@ class TrainerTester(unittest.TestCase):
         self.assertTrue(captured_log.startswith(expected_log_prefix))
 
     def test_save_checkpoint(self):
-        # create a temporary dir where model will be saved
         with tempfile.TemporaryDirectory() as tmp_dir:
+            # create a temporary dir where model will be saved
+            ckpt_path = f"{tmp_dir}/my_model"
+
             # create a model with "tiny" hyperparams
             vocab_size = 2
             block_size = 2
             n_layer = 1
             n_head = 1
             n_embd = 2
-            ckpt_path = f"{tmp_dir}/my_model"
             tiny_config = GPTConfig(
                 vocab_size=vocab_size,
                 block_size=block_size,
