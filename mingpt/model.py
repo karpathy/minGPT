@@ -14,25 +14,10 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
+from mingpt.utils import CfgNode as CN
+
 logger = logging.getLogger(__name__)
-
-class GPTConfig:
-    """ base GPT config, params common to all GPT versions """
-    embd_pdrop = 0.1
-    resid_pdrop = 0.1
-    attn_pdrop = 0.1
-
-    def __init__(self, vocab_size, block_size, **kwargs):
-        self.vocab_size = vocab_size
-        self.block_size = block_size
-        for k,v in kwargs.items():
-            setattr(self, k, v)
-
-class GPT1Config(GPTConfig):
-    """ GPT-1 like network roughly 125M params """
-    n_layer = 12
-    n_head = 12
-    n_embd = 768
+# -----------------------------------------------------------------------------
 
 class CausalSelfAttention(nn.Module):
     """
@@ -101,6 +86,23 @@ class Block(nn.Module):
 class GPT(nn.Module):
     """  the full GPT language model, with a context size of block_size """
 
+    @classmethod
+    def get_default_config(self, type):
+        C = CN(**{
+                'GPT-1': dict(n_layer=12, n_head=12, n_embd=768),
+                'Gopher-44M': dict(n_layer=8, n_head=16, n_embd=512),
+                'GPT-Micro': dict(n_layer=4, n_head=4, n_embd=64), # I made this one up...
+            }[type]
+        )
+        # these options must be filled in externally
+        C.vocab_size = None
+        C.block_size = None
+        # dropout hyperparameters
+        C.embd_pdrop = 0.1
+        C.resid_pdrop = 0.1
+        C.attn_pdrop = 0.1
+        return C
+
     def __init__(self, config):
         super().__init__()
 
@@ -117,6 +119,7 @@ class GPT(nn.Module):
         self.block_size = config.block_size
         self.apply(self._init_weights)
 
+        # TODO: only report the number of non-embedding parameters, as is standard practice
         logger.info("number of parameters: %e", sum(p.numel() for p in self.parameters()))
 
     def get_block_size(self):
@@ -181,7 +184,7 @@ class GPT(nn.Module):
 
     def forward(self, idx, targets=None):
         b, t = idx.size()
-        assert t <= self.block_size, "Cannot forward, model block size is exhausted."
+        assert t <= self.block_size, f"Cannot forward, model block size is exhausted on {t} <= {self.block_size}"
 
         # forward the GPT model
         token_embeddings = self.tok_emb(idx) # each index maps to a (learnable) vector
@@ -194,6 +197,6 @@ class GPT(nn.Module):
         # if we are given some desired targets also calculate the loss
         loss = None
         if targets is not None:
-            loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1))
+            loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1)
 
         return logits, loss

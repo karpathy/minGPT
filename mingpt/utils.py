@@ -45,3 +45,9 @@ def sample(model, x, steps, temperature=1.0, sample=False, top_k=None):
         x = torch.cat((x, ix), dim=1)
 
     return x
+
+class CfgNode:
+    """ a lightweight configuration class inspired by yacs """
+
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
