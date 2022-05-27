@@ -59,6 +59,7 @@ class Trainer:
             num_workers=config.num_workers,
         )
 
+        model.train()
         self.iter_num = 0
         data_iter = iter(train_loader)
         while True:
@@ -73,7 +74,6 @@ class Trainer:
             x, y = batch
 
             # forward the model
-            model.train()
             logits, self.loss = model(x, y)
 
             # backprop and update the parameters

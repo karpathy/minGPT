@@ -4,6 +4,7 @@ Trains a GPT to add n-digit numbers.
 
 import os
 import sys
+import json
 
 import torch
 from torch.utils.data import Dataset
@@ -125,6 +126,10 @@ if __name__ == '__main__':
     # inits and logging
     set_seed(config.system.seed)
     os.makedirs(config.system.work_dir, exist_ok=True)
+    with open(os.path.join(config.system.work_dir, 'args.txt'), 'w') as f:
+        f.write(' '.join(sys.argv))
+    with open(os.path.join(config.system.work_dir, 'config.json'), 'w') as f:
+        f.write(json.dumps(config.to_dict(), indent=4))
 
     # construct train and test datasets
     train_dataset = AdditionDataset(config.data, split='train')
@@ -142,19 +147,23 @@ if __name__ == '__main__':
         ndigit = config.data.ndigit
         results = []
         mistakes_printed_already = 0
+        factors = torch.tensor([[10**i for i in range(ndigit+1)][::-1]]).to(trainer.device)
         loader = DataLoader(dataset, batch_size=50, num_workers=0, drop_last=False)
         for b, (x, y) in enumerate(loader):
             x = x.to(trainer.device)
+            # isolate the first two digits of the input sequence alone
             d1d2 = x[:, :ndigit*2]
+            # let the model sample the rest of the sequence
             d1d2d3 = sample(model, d1d2, ndigit+1)
+            # isolate the last digit of the sampled sequence
             d3 = d1d2d3[:, -(ndigit+1):]
             d3 = d3.flip(1) # reverse the digits to their "normal" order
-            factors = torch.tensor([[10**i for i in range(ndigit+1)][::-1]]).to(trainer.device)
             # decode the integers from individual digits
             d1i = (d1d2[:,:ndigit] * factors[:,1:]).sum(1)
             d2i = (d1d2[:,ndigit:ndigit*2] * factors[:,1:]).sum(1)
             d3i_pred = (d3 * factors).sum(1)
-            d3i_gt = d1i + d2i
+            d3i_gt = d1i + d2i # manually calculate the ground truth
+            # evaluate the correctness of the results in this batch
             correct = (d3i_pred == d3i_gt).cpu() # Software 1.0 vs. Software 2.0 fight RIGHT on this line haha
             for i in range(x.size(0)):
                 results.append(int(correct[i]))
@@ -165,21 +174,31 @@ if __name__ == '__main__':
                 break
         rt = torch.tensor(results, dtype=torch.float)
         print("%s final score: %d/%d = %.2f%% correct" % (split, rt.sum(), len(results), 100*rt.mean()))
+        return rt.sum()
 
     # iteration callback
+    top_score = 0
     def batch_end_callback(trainer):
+        global top_score
 
         if trainer.iter_num % 100 == 0:
             print(f"iter {trainer.iter_num}: train loss {trainer.loss.item():.5f}")
 
         if trainer.iter_num % 500 == 0:
+            # evaluate both the train and test score
             model.eval()
-            eval_split(trainer, 'train', max_batches=-1)
-            eval_split(trainer, 'test',  max_batches=-1)
-
-        # todo: save good models but only if it's the best model so far
-        # ckpt_path = os.path.join(config.system.work_dir, "model.pt")
-        # torch.save(model.state_dict(), ckpt_path)
+            with torch.no_grad():
+                train_score = eval_split(trainer, 'train', max_batches=-1)
+                test_score  = eval_split(trainer, 'test',  max_batches=-1)
+            score = train_score + test_score
+            # save the model if this is the best score we've seen so far
+            if score > top_score:
+                top_score = score
+                print("saving model with new top score of %d" % (score, ))
+                ckpt_path = os.path.join(config.system.work_dir, "model.pt")
+                torch.save(model.state_dict(), ckpt_path)
+            # revert model to training mode
+            model.train()
 
     trainer.register_callback('on_batch_end', batch_end_callback)
 

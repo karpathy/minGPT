@@ -1,4 +1,5 @@
 
+import json
 import random
 from ast import literal_eval
 
@@ -69,6 +70,10 @@ class CfgNode:
                 parts.append("%s: %s\n" % (k, v))
         parts = [' ' * (indent * 4) + p for p in parts]
         return "".join(parts)
+
+    def to_dict(self):
+        """ return a dict representation of the config """
+        return { k: v.to_dict() if isinstance(v, CfgNode) else v for k, v in self.__dict__.items() }
 
     def merge_from_args(self, args):
         """
