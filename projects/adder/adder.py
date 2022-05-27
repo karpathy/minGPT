@@ -37,7 +37,7 @@ def get_config():
 
     # trainer
     C.trainer = Trainer.get_default_config()
-    C.learning_rate = 5e-4 # the model we're using is so small that we can go a bit faster
+    C.trainer.learning_rate = 5e-4 # the model we're using is so small that we can go a bit faster
 
     return C
 
@@ -119,7 +119,8 @@ if __name__ == '__main__':
 
     # get default config and overrides from the command line, if any
     config = get_config()
-    #config.merge_from_list(sys.argv[1:])
+    config.merge_from_args(sys.argv[1:])
+    print(config)
 
     # inits and logging
     set_seed(config.system.seed)
