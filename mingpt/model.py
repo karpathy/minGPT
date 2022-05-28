@@ -8,7 +8,6 @@ GPT model:
 """
 
 import math
-import logging
 
 import torch
 import torch.nn as nn
@@ -16,7 +15,6 @@ from torch.nn import functional as F
 
 from mingpt.utils import CfgNode as CN
 
-logger = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 
 class CausalSelfAttention(nn.Module):
@@ -87,7 +85,9 @@ class GPT(nn.Module):
     """  the full GPT language model, with a context size of block_size """
 
     @classmethod
-    def get_default_config(cls, model_type):
+    def get_default_config(cls):
+        # TODO: fix this model_type mess... I want to be able to configure model type from args by name... HMM
+        model_type = 'GPT-Micro'
         C = CN(**{
                 'GPT-1':      dict(n_layer=12, n_head=12, n_embd=768),
                 'Gopher-44M': dict(n_layer=8, n_head=16, n_embd=512),
@@ -121,8 +121,8 @@ class GPT(nn.Module):
         self.block_size = config.block_size
         self.apply(self._init_weights)
 
-        # TODO: only report the number of non-embedding parameters, as is standard practice
-        logger.info("number of parameters: %e", sum(p.numel() for p in self.parameters()))
+        # note: we only report the number of non-embedding params as is standard practice
+        print("number of parameters: %.2fM" % (sum(p.numel() for p in self.blocks.parameters())/1e6,))
 
     def get_block_size(self):
         return self.block_size

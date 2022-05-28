@@ -30,7 +30,7 @@ def get_config():
     C.data = AdditionDataset.get_default_config()
 
     # model
-    C.model = GPT.get_default_config('GPT-Micro')
+    C.model = GPT.get_default_config()
 
     # trainer
     C.trainer = Trainer.get_default_config()
@@ -160,7 +160,7 @@ if __name__ == '__main__':
             # isolate the first two digits of the input sequence alone
             d1d2 = x[:, :ndigit*2]
             # let the model sample the rest of the sequence
-            d1d2d3 = sample(model, d1d2, ndigit+1)
+            d1d2d3 = sample(model, d1d2, ndigit+1, sample=False) # using greedy argmax, not sampling
             # isolate the last digit of the sampled sequence
             d3 = d1d2d3[:, -(ndigit+1):]
             d3 = d3.flip(1) # reverse the digits to their "normal" order
@@ -175,7 +175,7 @@ if __name__ == '__main__':
                 results.append(int(correct[i]))
                 if not correct[i] and mistakes_printed_already < 5: # only print up to 5 mistakes to get a sense
                     mistakes_printed_already += 1
-                    print("GPT claims that %03d + %03d = %03d but gt is %03d" % (d1i[i], d2i[i], d3i_pred[i], d3i_gt[i]))
+                    print("GPT claims that %d + %d = %d but gt is %d" % (d1i[i], d2i[i], d3i_pred[i], d3i_gt[i]))
             if max_batches >= 0 and b+1 >= max_batches:
                 break
         rt = torch.tensor(results, dtype=torch.float)
@@ -195,9 +195,10 @@ if __name__ == '__main__':
 
         if trainer.iter_num % 500 == 0:
             # evaluate both the train and test score
+            train_max_batches = {1: -1, 2: -1, 3: 5}[config.data.ndigit] # if ndigit=2 we can afford the whole train set, ow no
             model.eval()
             with torch.no_grad():
-                train_score = eval_split(trainer, 'train', max_batches=-1)
+                train_score = eval_split(trainer, 'train', max_batches=train_max_batches)
                 test_score  = eval_split(trainer, 'test',  max_batches=-1)
             score = train_score + test_score
             # save the model if this is the best score we've seen so far

@@ -51,6 +51,9 @@ def sample(model, x, steps, temperature=1.0, sample=False, top_k=None):
 
 class CfgNode:
     """ a lightweight configuration class inspired by yacs """
+    # TODO: convert to subclass from a dict like in yacs?
+    # TODO: implement freezing to prevent shooting of own foot
+    # TODO: additional existence/override checks when reading/writing params?
 
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
