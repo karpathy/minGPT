@@ -1,5 +1,4 @@
 
-import json
 import random
 from ast import literal_eval
 
@@ -93,7 +92,7 @@ class CfgNode:
 
             # first translate val into a python object
             try:
-                eval_val_haha = literal_eval(val)
+                val = literal_eval(val)
                 """
                 need some explanation here.
                 - if val is simply a string, literal_eval will throw a ValueError
@@ -116,4 +115,4 @@ class CfgNode:
 
             # overwrite the attribute
             print("command line overwriting config attribute %s with %s" % (key, val))
-            setattr(obj, leaf_key, eval_val_haha)
+            setattr(obj, leaf_key, val)

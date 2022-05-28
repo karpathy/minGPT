@@ -87,12 +87,12 @@ class GPT(nn.Module):
     """  the full GPT language model, with a context size of block_size """
 
     @classmethod
-    def get_default_config(self, type):
+    def get_default_config(cls, model_type):
         C = CN(**{
                 'GPT-1': dict(n_layer=12, n_head=12, n_embd=768),
                 'Gopher-44M': dict(n_layer=8, n_head=16, n_embd=512),
                 'GPT-Micro': dict(n_layer=4, n_head=4, n_embd=64), # I made this one up...
-            }[type]
+            }[model_type]
         )
         # these options must be filled in externally
         C.vocab_size = None

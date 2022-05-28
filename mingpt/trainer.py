@@ -12,8 +12,10 @@ from mingpt.utils import CfgNode as CN
 class Trainer:
 
     @classmethod
-    def get_default_config(self):
+    def get_default_config(cls):
         C = CN()
+        # device to train on
+        C.device = 'auto'
         # dataloder parameters
         C.num_workers = 4
         # optimizer parameters
@@ -31,10 +33,11 @@ class Trainer:
         self.callbacks = defaultdict(list)
 
         # take over whatever gpus are on the system
-        self.device = 'cpu'
-        if torch.cuda.is_available():
-            self.device = torch.cuda.current_device()
-            self.model = self.model.to(self.device)
+        if config.device == 'auto':
+            self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        else:
+            self.device = config.device
+        self.model = self.model.to(self.device)
 
     def register_callback(self, onevent: str, callback):
         self.callbacks[onevent].append(callback)

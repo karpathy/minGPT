@@ -5,6 +5,7 @@ Trains a GPT to add n-digit numbers.
 import os
 import sys
 import json
+import time
 
 import torch
 from torch.utils.data import Dataset
@@ -34,7 +35,7 @@ def get_config():
     # a,b,a+b, and +1 due to potential carry overflow,
     # but then also -1 because very last digit doesn't ever plug back
     # as there is no explicit <EOS> token to predict, it is implied
-    C.model.block_size = C.data.ndigit + C.data.ndigit + C.data.ndigit + 1 - 1
+    C.model.block_size = 3*C.data.ndigit + 1 - 1
 
     # trainer
     C.trainer = Trainer.get_default_config()
@@ -70,7 +71,7 @@ class AdditionDataset(Dataset):
     """
 
     @classmethod
-    def get_default_config(self):
+    def get_default_config(cls):
         C = CN()
         C.ndigit = 2
         return C
@@ -178,11 +179,14 @@ if __name__ == '__main__':
 
     # iteration callback
     top_score = 0
+    time_now = time.time()
     def batch_end_callback(trainer):
-        global top_score
+        global top_score, time_now
 
         if trainer.iter_num % 100 == 0:
-            print(f"iter {trainer.iter_num}: train loss {trainer.loss.item():.5f}")
+            t = time.time()
+            print(f"{t - time_now}; iter {trainer.iter_num}: train loss {trainer.loss.item():.5f}")
+            time_now = t
 
         if trainer.iter_num % 500 == 0:
             # evaluate both the train and test score
