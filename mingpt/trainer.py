@@ -37,6 +37,7 @@ class Trainer:
             self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         else:
             self.device = config.device
+        print("running on device", self.device)
         self.model = self.model.to(self.device)
 
     def register_callback(self, onevent: str, callback):

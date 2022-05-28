@@ -31,11 +31,6 @@ def get_config():
 
     # model
     C.model = GPT.get_default_config('GPT-Micro')
-    C.model.vocab_size = 10 # the digits 0..9
-    # a,b,a+b, and +1 due to potential carry overflow,
-    # but then also -1 because very last digit doesn't ever plug back
-    # as there is no explicit <EOS> token to predict, it is implied
-    C.model.block_size = 3*C.data.ndigit + 1 - 1
 
     # trainer
     C.trainer = Trainer.get_default_config()
@@ -79,7 +74,6 @@ class AdditionDataset(Dataset):
     def __init__(self, config, split):
         self.config = config
         self.split = split # train/test
-        self.vocab_size = 10 # 10 possible digits 0..9
 
         # split up all addition problems into either training data or test data
         ndigit = self.config.ndigit
@@ -90,6 +84,15 @@ class AdditionDataset(Dataset):
         perm = torch.randperm(num, generator=rng)
         num_test = min(int(num*0.2), 500) # 20% of the whole dataset, or only up to 500
         self.ixes = perm[:num_test] if split == 'test' else perm[num_test:]
+
+    def get_vocab_size(self):
+        return 10 # digits 0..9
+
+    def get_block_size(self):
+        # a,b,a+b, and +1 due to potential carry overflow,
+        # but then also -1 because very last digit doesn't ever plug back
+        # as there is no explicit <EOS> token to predict, it is implied
+        return 3*self.config.ndigit + 1 - 1
 
     def __len__(self):
         return self.ixes.nelement()
@@ -137,6 +140,8 @@ if __name__ == '__main__':
     test_dataset  = AdditionDataset(config.data, split='test')
 
     # construct the model
+    config.model.vocab_size = train_dataset.get_vocab_size()
+    config.model.block_size = train_dataset.get_block_size()
     model = GPT(config.model)
 
     # construct the trainer object
@@ -149,7 +154,7 @@ if __name__ == '__main__':
         results = []
         mistakes_printed_already = 0
         factors = torch.tensor([[10**i for i in range(ndigit+1)][::-1]]).to(trainer.device)
-        loader = DataLoader(dataset, batch_size=50, num_workers=0, drop_last=False)
+        loader = DataLoader(dataset, batch_size=100, num_workers=0, drop_last=False)
         for b, (x, y) in enumerate(loader):
             x = x.to(trainer.device)
             # isolate the first two digits of the input sequence alone
@@ -183,9 +188,9 @@ if __name__ == '__main__':
     def batch_end_callback(trainer):
         global top_score, time_now
 
-        if trainer.iter_num % 100 == 0:
+        if trainer.iter_num % 20 == 0:
             t = time.time()
-            print(f"{t - time_now}; iter {trainer.iter_num}: train loss {trainer.loss.item():.5f}")
+            print(f"dt {t - time_now:.2f}; iter {trainer.iter_num}: train loss {trainer.loss.item():.5f}")
             time_now = t
 
         if trainer.iter_num % 500 == 0:

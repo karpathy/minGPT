@@ -89,9 +89,11 @@ class GPT(nn.Module):
     @classmethod
     def get_default_config(cls, model_type):
         C = CN(**{
-                'GPT-1': dict(n_layer=12, n_head=12, n_embd=768),
+                'GPT-1':      dict(n_layer=12, n_head=12, n_embd=768),
                 'Gopher-44M': dict(n_layer=8, n_head=16, n_embd=512),
-                'GPT-Micro': dict(n_layer=4, n_head=4, n_embd=64), # I made this one up...
+                # I made these up
+                'GPT-Mini':   dict(n_layer=6, n_head=8, n_embd=128),
+                'GPT-Micro':  dict(n_layer=4, n_head=4, n_embd=64),
             }[model_type]
         )
         # these options must be filled in externally
