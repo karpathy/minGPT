@@ -77,6 +77,9 @@ class CfgNode:
         """ return a dict representation of the config """
         return { k: v.to_dict() if isinstance(v, CfgNode) else v for k, v in self.__dict__.items() }
 
+    def merge_from_dict(self, d):
+        self.__dict__.update(d)
+
     def merge_from_args(self, args):
         """
         update the configuration from a list of strings that is expected

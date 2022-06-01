@@ -86,16 +86,12 @@ class GPT(nn.Module):
 
     @classmethod
     def get_default_config(cls):
-        # TODO: fix this model_type mess... I want to be able to configure model type from args by name... HMM
-        model_type = 'GPT-Micro'
-        C = CN(**{
-                'GPT-1':      dict(n_layer=12, n_head=12, n_embd=768),
-                'Gopher-44M': dict(n_layer=8, n_head=16, n_embd=512),
-                # I made these up
-                'GPT-Mini':   dict(n_layer=6, n_head=8, n_embd=128),
-                'GPT-Micro':  dict(n_layer=4, n_head=4, n_embd=64),
-            }[model_type]
-        )
+        C = CN()
+        # either model_type or (n_layer, n_head, n_embd) must be given in the config
+        C.name = 'GPT-Mini'
+        C.n_layer = None
+        C.n_head = None
+        C.n_embd =  None
         # these options must be filled in externally
         C.vocab_size = None
         C.block_size = None
@@ -107,6 +103,17 @@ class GPT(nn.Module):
 
     def __init__(self, config):
         super().__init__()
+
+        # map "named" GPT configurations to number of layers etc
+        if config.name is not None:
+            config.merge_from_dict({
+                'GPT-1':      dict(n_layer=12, n_head=12, n_embd=768),
+                'Gopher-44M': dict(n_layer=8, n_head=16, n_embd=512),
+                # I made these up
+                'GPT-Mini':   dict(n_layer=6, n_head=6, n_embd=192),
+                'GPT-Micro':  dict(n_layer=4, n_head=4, n_embd=128),
+                'GPT-Nano':   dict(n_layer=3, n_head=3, n_embd=48),
+            }[config.name])
 
         # input embedding stem
         self.tok_emb = nn.Embedding(config.vocab_size, config.n_embd)

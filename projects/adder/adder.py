@@ -31,6 +31,7 @@ def get_config():
 
     # model
     C.model = GPT.get_default_config()
+    C.model.name = 'GPT-Nano'
 
     # trainer
     C.trainer = Trainer.get_default_config()

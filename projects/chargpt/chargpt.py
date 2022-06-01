@@ -31,6 +31,7 @@ def get_config():
 
     # model
     C.model = GPT.get_default_config()
+    C.model.name = 'GPT-Mini'
 
     # trainer
     C.trainer = Trainer.get_default_config()
@@ -44,6 +45,7 @@ class CharDataset(Dataset):
     """
     Emits batches of characters
     """
+    # TODO: include start tokens
 
     @classmethod
     def get_default_config(cls):
