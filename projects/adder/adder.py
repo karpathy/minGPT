@@ -4,8 +4,6 @@ Trains a GPT to add n-digit numbers.
 
 import os
 import sys
-import json
-import time
 
 import torch
 from torch.utils.data import Dataset
@@ -127,14 +125,8 @@ if __name__ == '__main__':
     config = get_config()
     config.merge_from_args(sys.argv[1:])
     print(config)
-
-    # inits and logging
+    # inits
     set_seed(config.system.seed)
-    os.makedirs(config.system.work_dir, exist_ok=True)
-    with open(os.path.join(config.system.work_dir, 'args.txt'), 'w') as f:
-        f.write(' '.join(sys.argv))
-    with open(os.path.join(config.system.work_dir, 'config.json'), 'w') as f:
-        f.write(json.dumps(config.to_dict(), indent=4))
 
     # construct train and test datasets
     train_dataset = AdditionDataset(config.data, split='train')
@@ -146,7 +138,7 @@ if __name__ == '__main__':
     model = GPT(config.model)
 
     # construct the trainer object
-    trainer = Trainer(config.trainer, model, train_dataset)
+    trainer = Trainer(config, model, train_dataset)
 
     # helper function for the evaluation of a model
     def eval_split(trainer, split, max_batches=None):
@@ -185,14 +177,11 @@ if __name__ == '__main__':
 
     # iteration callback
     top_score = 0
-    time_now = time.time()
     def batch_end_callback(trainer):
-        global top_score, time_now
+        global top_score
 
-        if trainer.iter_num % 20 == 0:
-            t = time.time()
-            print(f"dt {t - time_now:.2f}; iter {trainer.iter_num}: train loss {trainer.loss.item():.5f}")
-            time_now = t
+        if trainer.iter_num % 10 == 0:
+            print(f"iter_dt {trainer.iter_dt * 1000:.2f}ms; iter {trainer.iter_num}: train loss {trainer.loss.item():.5f}")
 
         if trainer.iter_num % 500 == 0:
             # evaluate both the train and test score
