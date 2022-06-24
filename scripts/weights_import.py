@@ -55,7 +55,7 @@ def get_pretrained(model_type='gpt2'):
 
 def run(
     model_type = 'gpt2',
-    prompt = "I am a good sampler because",
+    prompt = "Hello, my dog is a little",
     num_samples = 5,
     do_sample = True,
     device = 'cuda',
@@ -74,6 +74,7 @@ def run(
 
     # tokenize an input prompt
     tokenizer = GPT2Tokenizer.from_pretrained(model_type)
+    model_hf.config.pad_token_id = model_hf.config.eos_token_id # suppress a warning
     if prompt == '': # to create unconditional samples we feed in the special start token
         prompt = '<|endoftext|>'
     encoded_input = tokenizer(prompt, return_tensors='pt').to(device)

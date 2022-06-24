@@ -194,7 +194,9 @@ class GPT(nn.Module):
         for mn, m in self.named_modules():
             for pn, p in m.named_parameters():
                 fpn = '%s.%s' % (mn, pn) if mn else pn # full param name
-
+                # random note: because named_modules and named_parameters are recursive
+                # we will see the same tensors p many many times. but doing it this way
+                # allows us to know which parent module any tensor p belongs to...
                 if pn.endswith('bias'):
                     # all biases will not be decayed
                     no_decay.add(fpn)
