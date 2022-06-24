@@ -33,15 +33,21 @@ def get_pretrained(model_type='gpt2'):
     model_hf = GPT2LMHeadModel.from_pretrained(model_type)
     sd_hf = model_hf.state_dict()
 
-    # ensure all of the parameters are aligned and match in names and shapes
+    # copy while ensuring all of the parameters are aligned and match in names and shapes
     keys = [k for k in sd_hf if not k.endswith('attn.masked_bias')] # ignore these
+    transposed = ['attn.c_attn.weight', 'attn.c_proj.weight', 'mlp.c_fc.weight', 'mlp.c_proj.weight']
+    # basically the openai checkpoints use a "Conv1D" module, but we only want to use a vanilla nn.Linear.
+    # this means that we have to transpose these weights when we import them
     assert len(keys) == len(sd)
     for k in keys:
-        assert sd_hf[k].shape == sd[k].shape
-
-    # copy over all of the parameters
-    for k in keys:
-        sd[k].copy_(sd_hf[k])
+        if any(k.endswith(w) for w in transposed):
+            assert sd_hf[k].shape[::-1] == sd[k].shape
+            with torch.no_grad():
+                sd[k].copy_(sd_hf[k].t())
+        else:
+            assert sd_hf[k].shape == sd[k].shape
+            with torch.no_grad():
+                sd[k].copy_(sd_hf[k])
 
     return model
 

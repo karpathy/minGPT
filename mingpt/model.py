@@ -23,29 +23,6 @@ from mingpt.utils import CfgNode as CN
 
 # -----------------------------------------------------------------------------
 
-# TODO: erase later wtf
-class Conv1D(nn.Module):
-    """
-    1D-convolutional layer as defined by Radford et al. for OpenAI GPT (and also used in GPT-2).
-    Basically works like a linear layer but the weights are transposed.
-    Args:
-        nf (`int`): The number of output features.
-        nx (`int`): The number of input features.
-    """
-    def __init__(self, nf, nx):
-        super().__init__()
-        self.nf = nf
-        w = torch.empty(nx, nf)
-        nn.init.normal_(w, std=0.02)
-        self.weight = nn.Parameter(w)
-        self.bias = nn.Parameter(torch.zeros(nf))
-
-    def forward(self, x):
-        size_out = x.size()[:-1] + (self.nf,)
-        x = torch.addmm(self.bias, x.view(-1, x.size(-1)), self.weight)
-        x = x.view(size_out)
-        return x
-
 class NewGELU(nn.Module):
     """
     Implementation of the GELU activation function currently in Google BERT repo (identical to OpenAI GPT).
@@ -65,9 +42,9 @@ class CausalSelfAttention(nn.Module):
         super().__init__()
         assert config.n_embd % config.n_head == 0
         # key, query, value projections for all heads, but in a batch
-        self.c_attn = Conv1D(3 * config.n_embd, config.n_embd)
+        self.c_attn = nn.Linear(config.n_embd, 3 * config.n_embd)
         # output projection
-        self.c_proj = Conv1D(config.n_embd, config.n_embd)
+        self.c_proj = nn.Linear(config.n_embd, config.n_embd)
         # regularization
         self.attn_dropout = nn.Dropout(config.attn_pdrop)
         self.resid_dropout = nn.Dropout(config.resid_pdrop)
@@ -107,8 +84,8 @@ class Block(nn.Module):
         self.attn = CausalSelfAttention(config)
         self.ln_2 = nn.LayerNorm(config.n_embd)
         self.mlp = nn.ModuleDict(dict(
-            c_fc    = Conv1D(4 * config.n_embd, config.n_embd),
-            c_proj  = Conv1D(config.n_embd, 4 * config.n_embd),
+            c_fc    = nn.Linear(config.n_embd, 4 * config.n_embd),
+            c_proj  = nn.Linear(4 * config.n_embd, config.n_embd),
             act     = NewGELU(),
             dropout = nn.Dropout(config.resid_pdrop),
         ))
@@ -185,7 +162,8 @@ class GPT(nn.Module):
         return self.block_size
 
     def _init_weights(self, module):
-        if isinstance(module, (nn.Linear, )):
+        # TODO: implement the layer-wise scaling proposed in gpt-2
+        if isinstance(module, nn.Linear):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
             if module.bias is not None:
                 torch.nn.init.zeros_(module.bias)
