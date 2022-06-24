@@ -5,6 +5,12 @@ GPT model:
     - each Transformer is a sequential combination of a 1-hidden-layer MLP block and a self-attention block
     - all blocks feed into a central residual pathway similar to resnets
 - the final decoder is a linear projection into a vanilla Softmax classifier
+
+References:
+1) the official GPT-2 TensorFlow implementation released by OpenAI:
+https://github.com/openai/gpt-2/blob/master/src/model.py
+2) huggingface/transformers PyTorch implementation:
+https://github.com/huggingface/transformers/blob/main/src/transformers/models/gpt2/modeling_gpt2.py
 """
 
 import math
@@ -26,7 +32,6 @@ class Conv1D(nn.Module):
         nf (`int`): The number of output features.
         nx (`int`): The number of input features.
     """
-
     def __init__(self, nf, nx):
         super().__init__()
         self.nf = nf
@@ -41,16 +46,13 @@ class Conv1D(nn.Module):
         x = x.view(size_out)
         return x
 
-# TODO erase later?
-class NewGELUActivation(nn.Module):
+class NewGELU(nn.Module):
     """
-    Implementation of the GELU activation function currently in Google BERT repo (identical to OpenAI GPT). Also see
-    the Gaussian Error Linear Units paper: https://arxiv.org/abs/1606.08415
+    Implementation of the GELU activation function currently in Google BERT repo (identical to OpenAI GPT).
+    Reference: Gaussian Error Linear Units (GELU) paper: https://arxiv.org/abs/1606.08415
     """
-
-    def forward(self, input):
-        return 0.5 * input * (1.0 + torch.tanh(math.sqrt(2.0 / math.pi) * (input + 0.044715 * torch.pow(input, 3.0))))
-
+    def forward(self, x):
+        return 0.5 * x * (1.0 + torch.tanh(math.sqrt(2.0 / math.pi) * (x + 0.044715 * torch.pow(x, 3.0))))
 
 class CausalSelfAttention(nn.Module):
     """
@@ -86,7 +88,7 @@ class CausalSelfAttention(nn.Module):
 
         # causal self-attention; Self-attend: (B, nh, T, hs) x (B, nh, hs, T) -> (B, nh, T, T)
         att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
-        att = att.masked_fill(self.bias[:,:,:T,:T] == 0, float('-inf')) # TODO: do not use -inf, use torch.finfo(attn_weights.dtype).min
+        att = att.masked_fill(self.bias[:,:,:T,:T] == 0, float('-inf'))
         att = F.softmax(att, dim=-1)
         att = self.attn_dropout(att)
         y = att @ v # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
@@ -107,11 +109,11 @@ class Block(nn.Module):
         self.mlp = nn.ModuleDict(dict(
             c_fc    = Conv1D(4 * config.n_embd, config.n_embd),
             c_proj  = Conv1D(config.n_embd, 4 * config.n_embd),
-            act     = NewGELUActivation(),
+            act     = NewGELU(),
             dropout = nn.Dropout(config.resid_pdrop),
         ))
         m = self.mlp
-        self.mlpf = lambda x: m.dropout(m.c_proj(m.act(m.c_fc(x))))
+        self.mlpf = lambda x: m.dropout(m.c_proj(m.act(m.c_fc(x)))) # MLP forward
 
     def forward(self, x):
         x = x + self.attn(self.ln_1(x))
@@ -119,16 +121,16 @@ class Block(nn.Module):
         return x
 
 class GPT(nn.Module):
-    """ The GPT Transformer, but without any decoder heads """
+    """ GPT Language Model """
 
     @classmethod
     def get_default_config(cls):
         C = CN()
         # either model_type or (n_layer, n_head, n_embd) must be given in the config
-        C.name = 'gpt-mini'
-        C.n_layer = None
-        C.n_head = None
-        C.n_embd =  None
+        C.name = None     # string OR
+        C.n_layer = None  # int
+        C.n_head = None   # int
+        C.n_embd =  None  # int
         # these options must be filled in externally
         C.vocab_size = None
         C.block_size = None
@@ -156,11 +158,13 @@ class GPT(nn.Module):
                 'gpt2-xl':      dict(n_layer=48, n_head=25, n_embd=1600), # 1558M params
                 # Gophers
                 'gopher-44m':   dict(n_layer=8, n_head=16, n_embd=512),
-                # I made these up
+                # (there are a number more...)
+                # I made these tiny models up
                 'gpt-mini':     dict(n_layer=6, n_head=6, n_embd=192),
                 'gpt-micro':    dict(n_layer=4, n_head=4, n_embd=128),
                 'gpt-nano':     dict(n_layer=3, n_head=3, n_embd=48),
             }[config.name])
+        assert all([config.n_layer is not None, config.n_head is not None, config.n_embd is not None])
 
         self.transformer = nn.ModuleDict(dict(
             wte = nn.Embedding(config.vocab_size, config.n_embd),
@@ -181,10 +185,12 @@ class GPT(nn.Module):
         return self.block_size
 
     def _init_weights(self, module):
-        if isinstance(module, (nn.Linear, nn.Embedding)):
+        if isinstance(module, (nn.Linear, )):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
-            if isinstance(module, nn.Linear) and module.bias is not None:
+            if module.bias is not None:
                 torch.nn.init.zeros_(module.bias)
+        elif isinstance(module, nn.Embedding):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
         elif isinstance(module, nn.LayerNorm):
             torch.nn.init.zeros_(module.bias)
             torch.nn.init.ones_(module.weight)
@@ -200,7 +206,7 @@ class GPT(nn.Module):
         # separate out all parameters to those that will and won't experience regularizing weight decay
         decay = set()
         no_decay = set()
-        whitelist_weight_modules = (torch.nn.Linear, Conv1D)
+        whitelist_weight_modules = (torch.nn.Linear, )
         blacklist_weight_modules = (torch.nn.LayerNorm, torch.nn.Embedding)
         for mn, m in self.named_modules():
             for pn, p in m.named_parameters():
