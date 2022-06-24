@@ -121,6 +121,7 @@ class GPT(nn.Module):
         super().__init__()
         assert config.vocab_size is not None
         assert config.block_size is not None
+        self.block_size = config.block_size
 
         # map "named" GPT configurations to number of layers etc
         if config.name is not None:
@@ -152,17 +153,21 @@ class GPT(nn.Module):
         ))
         self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
 
-        self.block_size = config.block_size
+        # init all weights, and apply a special scaled init to the residual projections, per GPT-2 paper
         self.apply(self._init_weights)
+        for pn, p in self.named_parameters():
+            if pn.endswith('c_proj.weight'):
+                torch.nn.init.normal_(p, mean=0.0, std=0.02/math.sqrt(2 * config.n_layer))
 
-        n_params = sum(p.numel() for p in self.parameters()) # TODO: this isn't right, don't count embeddings
+        # report number of parameters
+        # TODO: this isn't right, don't count embeddings
+        n_params = sum(p.numel() for p in self.parameters())
         print("number of parameters: %.2fM" % (n_params/1e6,))
 
     def get_block_size(self):
         return self.block_size
 
     def _init_weights(self, module):
-        # TODO: implement the layer-wise scaling proposed in gpt-2
         if isinstance(module, nn.Linear):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
             if module.bias is not None:
