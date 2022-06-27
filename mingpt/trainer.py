@@ -3,9 +3,6 @@ Simple training loop; Boilerplate that could apply to any arbitrary neural netwo
 so nothing in this file really has anything to do with GPT specifically.
 """
 
-import os
-import sys
-import json
 import time
 from collections import defaultdict
 
@@ -17,7 +14,6 @@ class Trainer:
 
     @classmethod
     def get_default_config(cls):
-        """ returns a default 'local' config for this class alone """
         C = CN()
         # device to train on
         C.device = 'auto'
@@ -31,29 +27,19 @@ class Trainer:
         C.grad_norm_clip = 1.0
         return C
 
-    def __init__(self, gconfig, model, train_dataset):
-        # gconfig is a 'global' config for everything, not just Trainer class alone
-        self.gconfig = gconfig
-        self.config = gconfig.trainer
+    def __init__(self, config, model, train_dataset):
+        self.config = config
         self.model = model
         self.train_dataset = train_dataset
         self.callbacks = defaultdict(list)
 
-        # set up logging
-        work_dir = gconfig.system.work_dir
-        os.makedirs(work_dir, exist_ok=True)
-        with open(os.path.join(work_dir, 'args.txt'), 'w') as f:
-            f.write(' '.join(sys.argv))
-        with open(os.path.join(work_dir, 'config.json'), 'w') as f:
-            f.write(json.dumps(self.gconfig.to_dict(), indent=4))
-
-        # take over whatever gpus are on the system
-        if self.config.device == 'auto':
+        # determine the device we'll train on
+        if config.device == 'auto':
             self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         else:
-            self.device = self.config.device
-        print("running on device", self.device)
+            self.device = config.device
         self.model = self.model.to(self.device)
+        print("running on device", self.device)
 
         # variables that will be assigned to trainer class later for logging and etc
         self.iter_num = 0

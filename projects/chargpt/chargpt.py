@@ -11,7 +11,7 @@ from torch.utils.data.dataloader import DataLoader
 
 from mingpt.model import GPT
 from mingpt.trainer import Trainer
-from mingpt.utils import set_seed, sample, CfgNode as CN
+from mingpt.utils import set_seed, sample, setup_logging, CfgNode as CN
 
 # -----------------------------------------------------------------------------
 
@@ -90,6 +90,7 @@ if __name__ == '__main__':
     config = get_config()
     config.merge_from_args(sys.argv[1:])
     print(config)
+    setup_logging(config)
     set_seed(config.system.seed)
 
     # construct the training dataset
@@ -102,7 +103,7 @@ if __name__ == '__main__':
     model = GPT(config.model)
 
     # construct the trainer object
-    trainer = Trainer(config, model, train_dataset)
+    trainer = Trainer(config.trainer, model, train_dataset)
 
     # iteration callback
     def batch_end_callback(trainer):
