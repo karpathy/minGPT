@@ -43,7 +43,6 @@ class CharDataset(Dataset):
     """
     Emits batches of characters
     """
-    # TODO: include start tokens
 
     @classmethod
     def get_default_config(cls):
