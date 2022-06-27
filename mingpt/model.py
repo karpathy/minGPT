@@ -100,8 +100,8 @@ class Block(nn.Module):
 class GPT(nn.Module):
     """ GPT Language Model """
 
-    @classmethod
-    def get_default_config(cls):
+    @staticmethod
+    def get_default_config():
         C = CN()
         # either model_type or (n_layer, n_head, n_embd) must be given in the config
         C.model_type = 'gpt'

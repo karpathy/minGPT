@@ -12,8 +12,8 @@ from mingpt.utils import CfgNode as CN
 
 class Trainer:
 
-    @classmethod
-    def get_default_config(cls):
+    @staticmethod
+    def get_default_config():
         C = CN()
         # device to train on
         C.device = 'auto'

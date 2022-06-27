@@ -65,8 +65,8 @@ class AdditionDataset(Dataset):
     correctly.
     """
 
-    @classmethod
-    def get_default_config(cls):
+    @staticmethod
+    def get_default_config():
         C = CN()
         C.ndigit = 2
         return C

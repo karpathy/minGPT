@@ -44,8 +44,8 @@ class CharDataset(Dataset):
     Emits batches of characters
     """
 
-    @classmethod
-    def get_default_config(cls):
+    @staticmethod
+    def get_default_config():
         C = CN()
         C.block_size = 128
         return C
