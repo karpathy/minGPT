@@ -29,7 +29,7 @@ def get_config():
 
     # model
     C.model = GPT.get_default_config()
-    C.model.name = 'gpt-mini'
+    C.model.model_type = 'gpt-mini'
 
     # trainer
     C.trainer = Trainer.get_default_config()

@@ -104,10 +104,10 @@ class GPT(nn.Module):
     def get_default_config(cls):
         C = CN()
         # either model_type or (n_layer, n_head, n_embd) must be given in the config
-        C.name = None     # string OR
-        C.n_layer = None  # int
-        C.n_head = None   # int
-        C.n_embd =  None  # int
+        C.model_type = 'gpt'
+        C.n_layer = None
+        C.n_head = None
+        C.n_embd =  None
         # these options must be filled in externally
         C.vocab_size = None
         C.block_size = None
@@ -123,8 +123,11 @@ class GPT(nn.Module):
         assert config.block_size is not None
         self.block_size = config.block_size
 
-        # map "named" GPT configurations to number of layers etc
-        if config.name is not None:
+        type_given = config.model_type is not None
+        params_given = all([config.n_layer is not None, config.n_head is not None, config.n_embd is not None])
+        assert (type_given and not params_given) or (not type_given and params_given) # exactly one of these
+        if type_given:
+            # translate from model_type to detailed configuration
             config.merge_from_dict({
                 # names follow the huggingface naming conventions
                 # GPT-1
@@ -141,8 +144,7 @@ class GPT(nn.Module):
                 'gpt-mini':     dict(n_layer=6, n_head=6, n_embd=192),
                 'gpt-micro':    dict(n_layer=4, n_head=4, n_embd=128),
                 'gpt-nano':     dict(n_layer=3, n_head=3, n_embd=48),
-            }[config.name])
-        assert all([config.n_layer is not None, config.n_head is not None, config.n_embd is not None])
+            }[config.model_type])
 
         self.transformer = nn.ModuleDict(dict(
             wte = nn.Embedding(config.vocab_size, config.n_embd),

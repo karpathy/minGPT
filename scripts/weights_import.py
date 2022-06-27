@@ -21,7 +21,7 @@ def get_pretrained(model_type='gpt2'):
 
     # init a mingpt model with the right hyperparams
     conf = GPT.get_default_config()
-    conf.name = model_type
+    conf.model_type = model_type
     conf.vocab_size = 50257 # openai's model vocabulary
     conf.block_size = 1024  # openai's model block_size
     model = GPT(conf)
