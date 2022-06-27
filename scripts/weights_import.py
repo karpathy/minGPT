@@ -4,10 +4,8 @@ with the help of code from huggingface/transformers. It also
 that the forward pass matches exactly.
 """
 
-import numpy as np
 import torch
-import torch.nn as nn
-from transformers import GPT2Tokenizer, GPT2Model, GPT2LMHeadModel
+from transformers import GPT2Tokenizer, GPT2LMHeadModel
 import fire
 
 from mingpt.model import GPT
@@ -41,10 +39,12 @@ def get_pretrained(model_type='gpt2'):
     assert len(keys) == len(sd)
     for k in keys:
         if any(k.endswith(w) for w in transposed):
+            # special treatment for the Conv1D weights we need to transpose
             assert sd_hf[k].shape[::-1] == sd[k].shape
             with torch.no_grad():
                 sd[k].copy_(sd_hf[k].t())
         else:
+            # vanilla copy over the other parameters
             assert sd_hf[k].shape == sd[k].shape
             with torch.no_grad():
                 sd[k].copy_(sd_hf[k])
@@ -95,7 +95,7 @@ def run(
         print('-'*80)
         print(out)
 
-    # draw some samples from mingpt model. TODO I don't think it's correct yet
+    # draw some samples from mingpt model
     print('-'*80)
     print('mingpt samples')
     print('-'*80)
