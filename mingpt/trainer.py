@@ -47,8 +47,11 @@ class Trainer:
         self.iter_time = 0.0
         self.iter_dt = 0.0
 
-    def register_callback(self, onevent: str, callback):
+    def add_callback(self, onevent: str, callback):
         self.callbacks[onevent].append(callback)
+
+    def set_callback(self, onevent: str, callback):
+        self.callbacks[onevent] = [callback]
 
     def trigger_callbacks(self, onevent: str):
         for callback in self.callbacks.get(onevent, []):

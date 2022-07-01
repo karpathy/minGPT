@@ -127,7 +127,7 @@ if __name__ == '__main__':
             # revert model to training mode
             model.train()
 
-    trainer.register_callback('on_batch_end', batch_end_callback)
+    trainer.set_callback('on_batch_end', batch_end_callback)
 
     # run the optimization
     trainer.run()
