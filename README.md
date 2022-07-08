@@ -5,12 +5,43 @@
 
 A PyTorch re-implementation of [GPT](https://github.com/openai/gpt-2), both training and inference. minGPT tries to be small, clean, interpretable and educational, as most of the currently available GPT model implementations can a bit sprawling. GPT is not a complicated model and this implementation is appropriately about 300 lines of code (see `mingpt/model.py`). All that's going on is that a sequence of indices feeds into a [Transformer](https://arxiv.org/abs/1706.03762), and a probability distribution over the next index in the sequence comes out. The majority of the complexity is just being clever with batching (both across examples and over sequence length) for efficiency.
 
-The minGPT library is effectively two files: `mingpt/model.py` contains the actual Transformer model definition and `mingpt/trainer.py` is (GPT-independent) PyTorch boilerplate code that trains the model. Then there are a number of demos and projects that use the library in the `projects` folder:
+The minGPT library is effectively two files: [mingpt/model.py](mingpt/model.py) contains the actual Transformer model definition and [mingpt/trainer.py](mingpt/trainer.py) is (GPT-independent) PyTorch boilerplate code that trains the model. Then there are a number of demos and projects that use the library in the `projects` folder:
 
 - `projects/adder` trains a GPT from scratch to add numbers (inspired by the addition section in the GPT-3 paper)
 - `projects/chargpt` trains a GPT to be a character-level language model on some input text file
 - `scripts/weights_import.py` shows how one can load the GPT2 weights (released by OpenAI) into a minGPT model
 - `demo.ipynb` shows a minimal usage of the `GPT` and `Trainer` in a notebook format on a simple sorting example
+
+### Usage
+
+Here's how you'd instantiate a GPT-2 (117M param version):
+
+```python
+from mingpt.model import GPT
+config = GPT.get_default_config()
+config.model_type = 'gpt2'
+config.vocab_size = 50257 # openai's model vocabulary
+config.block_size = 1024  # openai's model block_size (i.e. input context length)
+model = GPT(config)
+```
+
+And here's how you'd train it:
+
+```python
+# your subclass of torch.utils.data.Dataset that emits example
+# torch LongTensor of lengths up to 1024, with integers from [0,50257)
+train_dataset = YourDataset()
+
+from mingpt.trainer import Trainer
+train_config = Trainer.get_default_config()
+train_config.learning_rate = 5e-4 # many possible options, see the file
+train_config.max_iters = 1000
+train_config.batch_size = 32
+trainer = Trainer(train_config, model, train_dataset)
+trainer.run()
+```
+
+See `demo.ipynb` for a more concrete example.
 
 ### References
 
