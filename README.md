@@ -3,54 +3,22 @@
 
 ![mingpt](mingpt.jpg)
 
-A PyTorch re-implementation of [GPT](https://github.com/openai/gpt-3) training. minGPT tries to be small, clean, interpretable and educational, as most of the currently available ones are a bit sprawling. GPT is not a complicated model and this implementation is appropriately about 300 lines of code, including boilerplate and a totally unnecessary custom causal self-attention module. Anyway, all that's going on is that a sequence of indices goes into a sequence of transformer blocks, and a probability distribution of the next index comes out. The rest of the complexity is just being clever with batching (both across examples and over sequence length) so that training is efficient.
+A PyTorch re-implementation of [GPT](https://github.com/openai/gpt-2), both training and inference. minGPT tries to be small, clean, interpretable and educational, as most of the currently available GPT model implementations can a bit sprawling. GPT is not a complicated model and this implementation is appropriately about 300 lines of code (see `mingpt/model.py`). All that's going on is that a sequence of indices feeds into a [Transformer](https://arxiv.org/abs/1706.03762), and a probability distribution over the next index in the sequence comes out. The majority of the complexity is just being clever with batching (both across examples and over sequence length) for efficiency.
 
-The core minGPT "library" (hah) is two files: `mingpt/model.py` contains the actual Transformer model definition and `mingpt/trainer.py` is (GPT-independent) PyTorch boilerplate that trains the model. The attached Jupyter notebooks then show how the "library" (hah) can be used to train sequence models:
+The minGPT library is effectively two files: `mingpt/model.py` contains the actual Transformer model definition and `mingpt/trainer.py` is (GPT-independent) PyTorch boilerplate code that trains the model. Then there are a number of demos and projects that use the library in the `projects` folder:
 
-- `play_math.ipynb` trains a GPT focused on addition (inspired by the addition section in the GPT-3 paper)
-- `play_char.ipynb` trains a GPT to be a character-level language model on arbitrary text, similar to my older char-rnn but with a transformer instead of an RNN
-- `play_image.ipynb` trains a GPT on (small) images (CIFAR-10), showing that we can model images just as text, as both can be reduced to just a sequence of integers
-- `play_words.ipynb` a BPE version that does not yet exist
-
-With a bpe encoder, distributed training and maybe fp16 this implementation may be able to reproduce GPT-1/GPT-2 results, though I haven't tried $$$. GPT-3 is likely out of reach as my understanding is that it does not fit into GPU memory and requires a more careful model-parallel treatment.
-
-### Example usage
-
-This code is simple enough to just hack inline, not "used", but current API looks something like:
-
-```python
-
-# you're on your own to define a class that returns individual examples as PyTorch LongTensors
-from torch.utils.data import Dataset
-train_dataset = MyDataset(...)
-test_dataset = MyDataset(...)
-
-# construct a GPT model
-from mingpt.model import GPT, GPTConfig
-mconf = GPTConfig(vocab_size, block_size, n_layer=12, n_head=12, n_embd=768) # a GPT-1
-model = GPT(mconf)
-
-# construct a trainer
-from mingpt.trainer import Trainer, TrainerConfig
-tconf = TrainerConfig(max_epochs=10, batch_size=256)
-trainer = Trainer(model, train_dataset, test_dataset, tconf)
-trainer.train()
-# (... enjoy the show for a while... )
-
-# sample from the model (the [None, ...] and [0] are to push/pop a needed dummy batch dimension)
-from mingpt.utils import sample
-x = torch.tensor([1, 2, 3], dtype=torch.long)[None, ...] # context conditioning
-y = sample(model, x, steps=30, temperature=1.0, sample=True, top_k=5)[0]
-print(y) # our model filled in the integer sequence with 30 additional likely integers
-```
+- `projects/adder` trains a GPT from scratch to add numbers (inspired by the addition section in the GPT-3 paper)
+- `projects/chargpt` trains a GPT to be a character-level language model on some input text file
+- `scripts/weights_import.py` shows how one can load the GPT2 weights (released by OpenAI) into a minGPT model
+- `demo.ipynb` shows a minimal usage of the `GPT` and `Trainer` in a notebook format on a simple sorting example
 
 ### References
 
 Code:
 
-- [openai/gpt-2](https://github.com/openai/gpt-2) has the model but not the training code, and in TensorFlow
+- [openai/gpt-2](https://github.com/openai/gpt-2) has the model definition in TensorFlow, but not the training code
 - [openai/image-gpt](https://github.com/openai/image-gpt) has some more modern gpt-3 like modification in its code, good reference as well
-- [huggingface/transformers](https://github.com/huggingface/transformers) has a [language-modeling example](https://github.com/huggingface/transformers/tree/master/examples/pytorch/language-modeling). It is full-featured but as a result also somewhat challenging to trace. E.g. some large functions have as much as 90% unused code behind various branching statements that is unused in the default setting of simple language modeling.
+- [huggingface/transformers](https://github.com/huggingface/transformers) has a [language-modeling example](https://github.com/huggingface/transformers/tree/master/examples/pytorch/language-modeling). It is full-featured but as a result also somewhat challenging to trace. E.g. some large functions have as much as 90% unused code behind various branching statements that is unused in the default setting of simple language modeling
 
 Papers + some implementation notes:
 
