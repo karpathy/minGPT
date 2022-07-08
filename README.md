@@ -9,8 +9,8 @@ The minGPT library is effectively two files: [mingpt/model.py](mingpt/model.py) 
 
 - `projects/adder` trains a GPT from scratch to add numbers (inspired by the addition section in the GPT-3 paper)
 - `projects/chargpt` trains a GPT to be a character-level language model on some input text file
-- `scripts/gpt2_generate.py` shows how one can load the GPT2 weights (released by OpenAI) into a minGPT model and run inference given some random prompts from the command line
 - `demo.ipynb` shows a minimal usage of the `GPT` and `Trainer` in a notebook format on a simple sorting example
+- `generate.ipynb` shows how one can load a pretrained GPT2 and generate text given some prompt
 
 ### Usage
 
