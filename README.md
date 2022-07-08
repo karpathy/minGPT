@@ -43,6 +43,14 @@ trainer.run()
 
 See `demo.ipynb` for a more concrete example.
 
+### Unit tests
+
+Coverage is not super amazing just yet but:
+
+```
+python -m unittest discover tests
+```
+
 ### References
 
 Code:
