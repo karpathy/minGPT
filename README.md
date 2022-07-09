@@ -51,6 +51,15 @@ Coverage is not super amazing just yet but:
 python -m unittest discover tests
 ```
 
+### todos
+
+- add gpt-2 finetuning demo on arbitrary given text file
+- add dialog agent demo
+- better docs of outcomes for existing projects (adder, chargpt)
+- remove huggingface tokenizer dependency for bpe? don't love it
+- add mixed precision and related training scaling goodies
+- reproduce some benchmarks in projects/
+
 ### References
 
 Code:
