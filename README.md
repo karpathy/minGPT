@@ -3,7 +3,7 @@
 
 ![mingpt](mingpt.jpg)
 
-A PyTorch re-implementation of [GPT](https://github.com/openai/gpt-2), both training and inference. minGPT tries to be small, clean, interpretable and educational, as most of the currently available GPT model implementations can a bit sprawling. GPT is not a complicated model and this implementation is appropriately about 300 lines of code (see `mingpt/model.py`). All that's going on is that a sequence of indices feeds into a [Transformer](https://arxiv.org/abs/1706.03762), and a probability distribution over the next index in the sequence comes out. The majority of the complexity is just being clever with batching (both across examples and over sequence length) for efficiency.
+A PyTorch re-implementation of [GPT](https://github.com/openai/gpt-2), both training and inference. minGPT tries to be small, clean, interpretable and educational, as most of the currently available GPT model implementations can a bit sprawling. GPT is not a complicated model and this implementation is appropriately about 300 lines of code (see [mingpt/model.py](mingpt/model.py)). All that's going on is that a sequence of indices feeds into a [Transformer](https://arxiv.org/abs/1706.03762), and a probability distribution over the next index in the sequence comes out. The majority of the complexity is just being clever with batching (both across examples and over sequence length) for efficiency.
 
 The minGPT library is effectively two files: [mingpt/model.py](mingpt/model.py) contains the actual Transformer model definition and [mingpt/trainer.py](mingpt/trainer.py) is (GPT-independent) PyTorch boilerplate code that trains the model. Then there are a number of demos and projects that use the library in the `projects` folder:
 
@@ -14,7 +14,7 @@ The minGPT library is effectively two files: [mingpt/model.py](mingpt/model.py) 
 
 ### Usage
 
-Here's how you'd instantiate a GPT-2 (117M param version):
+Here's how you'd instantiate a GPT-2 (124M param version):
 
 ```python
 from mingpt.model import GPT
