@@ -58,7 +58,9 @@ python -m unittest discover tests
 - better docs of outcomes for existing projects (adder, chargpt)
 - remove huggingface tokenizer dependency for bpe? don't love it
 - add mixed precision and related training scaling goodies
-- reproduce some benchmarks in projects/
+- distributed training support
+- reproduce some benchmarks in projects/, e.g. text8 or other language modeling
+- proper logging instead of print statement amateur hour haha
 
 ### References
 
