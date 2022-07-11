@@ -11,7 +11,7 @@ from torch.utils.data.dataloader import DataLoader
 
 from mingpt.model import GPT
 from mingpt.trainer import Trainer
-from mingpt.utils import set_seed, sample, setup_logging, CfgNode as CN
+from mingpt.utils import set_seed, setup_logging, CfgNode as CN
 
 # -----------------------------------------------------------------------------
 
@@ -117,7 +117,7 @@ if __name__ == '__main__':
                 # sample from the model...
                 context = "O God, O God!"
                 x = torch.tensor([train_dataset.stoi[s] for s in context], dtype=torch.long)[None,...].to(trainer.device)
-                y = sample(model, x, 500, temperature=1.0, sample=True, top_k=10)[0]
+                y = model.generate(x, 500, temperature=1.0, do_sample=True, top_k=10)[0]
                 completion = ''.join([train_dataset.itos[int(i)] for i in y])
                 print(completion)
             # save the latest model

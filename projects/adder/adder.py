@@ -12,7 +12,7 @@ from torch.utils.data.dataloader import DataLoader
 
 from mingpt.model import GPT
 from mingpt.trainer import Trainer
-from mingpt.utils import set_seed, sample, setup_logging, CfgNode as CN
+from mingpt.utils import set_seed, setup_logging, CfgNode as CN
 
 # -----------------------------------------------------------------------------
 
@@ -154,7 +154,7 @@ if __name__ == '__main__':
             # isolate the first two digits of the input sequence alone
             d1d2 = x[:, :ndigit*2]
             # let the model sample the rest of the sequence
-            d1d2d3 = sample(model, d1d2, ndigit+1, sample=False) # using greedy argmax, not sampling
+            d1d2d3 = model.generate(d1d2, ndigit+1, do_sample=False) # using greedy argmax, not sampling
             # isolate the last digit of the sampled sequence
             d3 = d1d2d3[:, -(ndigit+1):]
             d3 = d3.flip(1) # reverse the digits to their "normal" order

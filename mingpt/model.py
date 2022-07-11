@@ -1,10 +1,5 @@
 """
-GPT model:
-- the initial stem consists of a combination of token encoding and a positional encoding
-- the meat of it is a uniform sequence of Transformer blocks
-    - each Transformer is a sequential combination of a 1-hidden-layer MLP block and a self-attention block
-    - all blocks feed into a central residual pathway similar to resnets
-- the final decoder is a linear projection into a vanilla Softmax classifier
+Full definition of a GPT Language Model, all of it in this single file.
 
 References:
 1) the official GPT-2 TensorFlow implementation released by OpenAI:
@@ -161,12 +156,9 @@ class GPT(nn.Module):
             if pn.endswith('c_proj.weight'):
                 torch.nn.init.normal_(p, mean=0.0, std=0.02/math.sqrt(2 * config.n_layer))
 
-        # report number of parameters
+        # report number of parameters (note we don't count the decoder parameters in lm_head)
         n_params = sum(p.numel() for p in self.transformer.parameters())
         print("number of parameters: %.2fM" % (n_params/1e6,))
-
-    def get_block_size(self):
-        return self.block_size
 
     def _init_weights(self, module):
         if isinstance(module, nn.Linear):
@@ -286,3 +278,33 @@ class GPT(nn.Module):
             loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1)
 
         return logits, loss
+
+    @torch.no_grad()
+    def generate(self, idx, max_new_tokens, temperature=1.0, do_sample=False, top_k=None):
+        """
+        Take a conditioning sequence of indices idx (LongTensor of shape (b,t)) and complete
+        the sequence max_new_tokens times, feeding the predictions back into the model each time.
+        Most likely you'll want to make sure to be in model.eval() mode of operation for this.
+        """
+        for _ in range(max_new_tokens):
+            # if the sequence context is growing too long we must crop it at block_size
+            idx_cond = idx if idx.size(1) <= self.block_size else idx[:, -self.block_size:]
+            # forward the model to get the logits for the index in the sequence
+            logits, _ = self(idx_cond)
+            # pluck the logits at the final step and scale by desired temperature
+            logits = logits[:, -1, :] / temperature
+            # optionally crop the logits to only the top k options
+            if top_k is not None:
+                v, _ = torch.topk(logits, top_k)
+                logits[logits < v[:, [-1]]] = -float('Inf')
+            # apply softmax to convert logits to (normalized) probabilities
+            probs = F.softmax(logits, dim=-1)
+            # either sample from the distribution or take the most likely element
+            if do_sample:
+                idx_next = torch.multinomial(probs, num_samples=1)
+            else:
+                _, idx_next = torch.topk(probs, k=1, dim=-1)
+            # append sampled index to the running sequence and continue
+            idx = torch.cat((idx, idx_next), dim=1)
+
+        return idx

@@ -6,7 +6,6 @@ import unittest
 import torch
 from transformers import GPT2Tokenizer, GPT2LMHeadModel
 from mingpt.model import GPT
-from mingpt.utils import sample
 
 # -----------------------------------------------------------------------------
 
@@ -41,14 +40,15 @@ class TestHuggingFaceImport(unittest.TestCase):
         logits2 = model_hf(x).logits
         self.assertTrue(torch.allclose(logits1, logits2))
 
-        # now draw the argmax samples from each and compare them
-        y1 = sample(model=model, x=x, steps=20, sample=False)[0]
-        out1 = tokenizer.decode(y1.cpu().squeeze())
+        # now draw the argmax samples from each
+        y1 = model.generate(x, max_new_tokens=20, do_sample=False)[0]
         y2 = model_hf.generate(x, max_new_tokens=20, do_sample=False)[0]
-        out2 = tokenizer.decode(y2.cpu().squeeze())
-        self.assertTrue(torch.equal(y1, y2))
-        self.assertTrue(out1 == out2) # compare the output strings too, exactly
+        self.assertTrue(torch.equal(y1, y2)) # compare the raw sampled indices
 
+        # convert indices to strings
+        out1 = tokenizer.decode(y1.cpu().squeeze())
+        out2 = tokenizer.decode(y2.cpu().squeeze())
+        self.assertTrue(out1 == out2) # compare the exact output strings too
 
 if __name__ == '__main__':
     unittest.main()
