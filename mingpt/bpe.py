@@ -277,3 +277,41 @@ class BPETokenizer:
         # decode indices to text
         text = self.encoder.decode(idx.tolist())
         return text
+
+
+if __name__ == '__main__':
+
+    # here is an encoding example
+    text = "Hello! I'm Andrej. It's 2022. w00t🤗"
+    e = get_encoder()
+    r = e.encode_and_show_work(text)
+
+    print("Original text is:")
+    print(text)
+    # "Hello! I'm Andrej. It's 2022. w00t🤗"
+    print("First the text gets pre-tokenized, broken up into chunks, the outcome is:")
+    print(r['tokens'])
+    # ['Hello', '!', ' I', "'m", ' Andrej', '.', ' It', "'s", ' 2022', '.', ' w', '00', 't', '🤗']
+    print("Then we iterate over each chunk and process them in turn...")
+    for part in r['parts']:
+        print(part)
+    # {'token': 'Hello', 'token_bytes': b'Hello', 'token_translated': 'Hello', 'token_merged': ['Hello'], 'token_ix': [15496]}
+    # {'token': '!', 'token_bytes': b'!', 'token_translated': '!', 'token_merged': ['!'], 'token_ix': [0]}
+    # {'token': ' I', 'token_bytes': b' I', 'token_translated': 'ĠI', 'token_merged': ['ĠI'], 'token_ix': [314]}
+    # {'token': "'m", 'token_bytes': b"'m", 'token_translated': "'m", 'token_merged': ["'m"], 'token_ix': [1101]}
+    # {'token': ' Andrej', 'token_bytes': b' Andrej', 'token_translated': 'ĠAndrej', 'token_merged': ['ĠAndre', 'j'], 'token_ix': [10948, 73]}
+    # {'token': '.', 'token_bytes': b'.', 'token_translated': '.', 'token_merged': ['.'], 'token_ix': [13]}
+    # {'token': ' It', 'token_bytes': b' It', 'token_translated': 'ĠIt', 'token_merged': ['ĠIt'], 'token_ix': [632]}
+    # {'token': "'s", 'token_bytes': b"'s", 'token_translated': "'s", 'token_merged': ["'s"], 'token_ix': [338]}
+    # {'token': ' 2022', 'token_bytes': b' 2022', 'token_translated': 'Ġ2022', 'token_merged': ['Ġ2022'], 'token_ix': [33160]}
+    # {'token': '.', 'token_bytes': b'.', 'token_translated': '.', 'token_merged': ['.'], 'token_ix': [13]}
+    # {'token': ' w', 'token_bytes': b' w', 'token_translated': 'Ġw', 'token_merged': ['Ġw'], 'token_ix': [266]}
+    # {'token': '00', 'token_bytes': b'00', 'token_translated': '00', 'token_merged': ['00'], 'token_ix': [405]}
+    # {'token': 't', 'token_bytes': b't', 'token_translated': 't', 'token_merged': ['t'], 'token_ix': [83]}
+    # {'token': '🤗', 'token_bytes': b'\xf0\x9f\xa4\x97', 'token_translated': 'ðŁ¤Ĺ', 'token_merged': ['ðŁ', '¤', 'Ĺ'], 'token_ix': [8582, 97, 245]}
+    # (refer to the code inside Encoder.encode for what these intermediates are)
+    print("and the final outcome is concatenating and flattening all the token_ix:")
+    print(r['bpe_idx'])
+    # [15496, 0, 314, 1101, 10948, 73, 13, 632, 338, 33160, 13, 266, 405, 83, 8582, 97, 245]
+    # this would then become the integer input sequence to the transformer
+    print("ready to feed into a Transformer!")
