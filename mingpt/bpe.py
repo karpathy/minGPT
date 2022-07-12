@@ -3,7 +3,7 @@ bpe is short for Byte Pair Encoder. It translates arbitrary utf-8 strings into
 sequences of integers, where each integer represents small chunks of commonly
 occuring characters. This implementation is based on openai's gpt2 encoder.py:
 https://github.com/openai/gpt-2/blob/master/src/encoder.py
-but was midly modified because the original implementation is a bit confusing.
+but was mildly modified because the original implementation is a bit confusing.
 I also tried to add as many comments as possible, my own understanding of what's
 going on.
 """
@@ -19,7 +19,7 @@ import torch
 
 def bytes_to_unicode():
     """
-    Everu possible byte (really an integer 0..255) gets mapped by OpenAI to a unicode
+    Every possible byte (really an integer 0..255) gets mapped by OpenAI to a unicode
     character that represents it visually. Some bytes have their appearance preserved
     because they don't cause any trouble. These are defined in list bs. For example:
     chr(33) returns "!", so in the returned dictionary we simply have d[33] -> "!".
@@ -94,7 +94,7 @@ class Encoder:
 
     def bpe(self, token):
         """
-        this function uses self.bpe_ranks to iterative merge all the possible bpe tokens
+        this function uses self.bpe_ranks to iteratively merge all the possible bpe tokens
         up the tree. token is a string of one individual 'word' (after regex tokenization)
         and after byte encoding, e.g. 'Ġthere'.
         """
