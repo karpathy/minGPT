@@ -5,7 +5,7 @@
 
 A PyTorch re-implementation of [GPT](https://github.com/openai/gpt-2), both training and inference. minGPT tries to be small, clean, interpretable and educational, as most of the currently available GPT model implementations can a bit sprawling. GPT is not a complicated model and this implementation is appropriately about 300 lines of code (see [mingpt/model.py](mingpt/model.py)). All that's going on is that a sequence of indices feeds into a [Transformer](https://arxiv.org/abs/1706.03762), and a probability distribution over the next index in the sequence comes out. The majority of the complexity is just being clever with batching (both across examples and over sequence length) for efficiency.
 
-The minGPT library is effectively two files: [mingpt/model.py](mingpt/model.py) contains the actual Transformer model definition and [mingpt/trainer.py](mingpt/trainer.py) is (GPT-independent) PyTorch boilerplate code that trains the model. Then there are a number of demos and projects that use the library in the `projects` folder:
+The minGPT library is three files: [mingpt/model.py](mingpt/model.py) contains the actual Transformer model definition, [mingpt/bpe.py](mingpt/bpe.py) contains a mildly refactored Byte Pair Encoder that translates between text and sequences of integers exactly like OpenAI did in GPT, [mingpt/trainer.py](mingpt/trainer.py) is (GPT-independent) PyTorch boilerplate code that trains the model. Then there are a number of demos and projects that use the library in the `projects` folder:
 
 - `projects/adder` trains a GPT from scratch to add numbers (inspired by the addition section in the GPT-3 paper)
 - `projects/chargpt` trains a GPT to be a character-level language model on some input text file
@@ -56,11 +56,12 @@ python -m unittest discover tests
 - add gpt-2 finetuning demo on arbitrary given text file
 - add dialog agent demo
 - better docs of outcomes for existing projects (adder, chargpt)
-- remove huggingface tokenizer dependency for bpe? don't love it
 - add mixed precision and related training scaling goodies
 - distributed training support
 - reproduce some benchmarks in projects/, e.g. text8 or other language modeling
 - proper logging instead of print statement amateur hour haha
+- i probably should have a requirements.txt file...
+- it should be possible to load in many other model weights other than just gpt2-\*
 
 ### References
 
