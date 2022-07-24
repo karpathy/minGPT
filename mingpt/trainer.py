@@ -4,6 +4,7 @@ so nothing in this file really has anything to do with GPT specifically.
 """
 
 import time
+import itertools
 from collections import defaultdict
 
 import torch
@@ -43,7 +44,7 @@ class Trainer:
         print("running on device", self.device)
 
         # variables that will be assigned to trainer class later for logging and etc
-        self.iter_num = 0
+        self.iter_num: int = 0
         self.iter_time = 0.0
         self.iter_dt = 0.0
 
@@ -76,17 +77,8 @@ class Trainer:
         )
 
         model.train()
-        self.iter_num = 0
         self.iter_time = time.time()
-        data_iter = iter(train_loader)
-        while True:
-
-            # fetch the next batch (x, y) and re-init iterator if needed
-            try:
-                batch = next(data_iter)
-            except StopIteration:
-                data_iter = iter(train_loader)
-                batch = next(data_iter)
+        for iter_num, batch in enumerate(itertools.cycle(train_loader)):
             batch = [t.to(self.device) for t in batch]
             x, y = batch
 
@@ -100,11 +92,12 @@ class Trainer:
             optimizer.step()
 
             self.trigger_callbacks("on_batch_end")
-            self.iter_num += 1
             tnow = time.time()
+            self.iter_num = iter_num
             self.iter_dt = tnow - self.iter_time
             self.iter_time = tnow
 
             # termination conditions
-            if config.max_iters is not None and self.iter_num >= config.max_iters:
-                break
+            if config.max_iters is not None:
+                if iter_num >= config.max_iters:
+                    break
