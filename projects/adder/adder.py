@@ -204,12 +204,11 @@ if __name__ == "__main__":
         )
         return rt.sum()
 
-    # iteration callback
-    top_score = 0
     ckpt_path = Path(config.system.work_dir) / "model.pt"
 
     def batch_end_callback(trainer):
-        global top_score
+        history = trainer.state
+        top_score = history.get("top_score", 0)
 
         if trainer.iter_num % 10 == 0:
             print(
@@ -230,8 +229,8 @@ if __name__ == "__main__":
             score = train_score + test_score
             # save the model if this is the best score we've seen so far
             if score > top_score:
-                top_score = score
                 print(f"saving model with new top score of {score}")
+                history["top_score"] = score
                 torch.save(model.state_dict(), ckpt_path)
             # revert model to training mode
             model.train()

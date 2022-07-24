@@ -29,11 +29,14 @@ class Trainer:
         C.grad_norm_clip = 1.0
         return C
 
-    def __init__(self, config, model, train_dataset):
+    def __init__(self, config, model, train_dataset, state=None) -> None:
         self.config = config
         self.model = model
         self.train_dataset = train_dataset
         self.callbacks = defaultdict(list)
+
+        # any state used for callback reporting across batches
+        self.state = state or {}
 
         # determine the device we'll train on
         if config.device == "auto":
