@@ -16,10 +16,13 @@ class Trainer:
     @staticmethod
     def get_default_config():
         C = CN()
+
         # device to train on
         C.device = "auto"
+
         # dataloder parameters
         C.num_workers = 4
+
         # optimizer parameters
         C.max_iters = None
         C.batch_size = 64
@@ -43,8 +46,9 @@ class Trainer:
             self.device = "cuda" if torch.cuda.is_available() else "cpu"
         else:
             self.device = config.device
+
         self.model = self.model.to(self.device)
-        print("running on device", self.device)
+        print("running on device:", self.device)
 
         # variables that will be assigned to trainer class later for logging and etc
         self.iter_num: int = 0

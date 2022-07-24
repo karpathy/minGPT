@@ -34,9 +34,9 @@ def get_config():
 
     # trainer
     C.trainer = Trainer.get_default_config()
-    C.trainer.learning_rate = (
-        5e-4  # the model we're using is so small that we can go a bit faster
-    )
+
+    # the model we're using is so small that we can go a bit faster
+    C.trainer.learning_rate = 5e-4
 
     return C
 
@@ -75,7 +75,7 @@ class AdditionDataset(Dataset):
         C.ndigit = 2
         return C
 
-    def __init__(self, config, split):
+    def __init__(self, config, split) -> None:
         self.config = config
         self.split = split  # train/test
 
@@ -84,15 +84,16 @@ class AdditionDataset(Dataset):
         assert (
             ndigit <= 3
         ), "the lines below would be very memory inefficient, in future maybe refactor to support"
-        num = (
-            10**ndigit
-        ) ** 2  # total number of possible addition problems with ndigit numbers
+
+        # total number of possible addition problems with ndigit numbers
+        num = (10**ndigit) ** 2
         rng = torch.Generator()
         rng.manual_seed(1337)
         perm = torch.randperm(num, generator=rng)
-        num_test = min(
-            int(num * 0.2), 500
-        )  # 20% of the whole dataset, or only up to 500
+
+        # 20% of the whole dataset, or only up to 500
+        num_test = min(int(num * 0.2), 500)
+
         self.ixes = perm[:num_test] if split == "test" else perm[num_test:]
 
     def get_vocab_size(self):
@@ -114,33 +115,34 @@ class AdditionDataset(Dataset):
         nd = 10**ndigit
         a = idx // nd
         b = idx % nd
+
         # calculate the "label" of the addition problem a + b
         c = a + b
+
         # encode the digits of a, b, c into strings
         astr = f"{a:0{ndigit}d}"
         bstr = f"{b:0{ndigit}d}"
         cstr = (f"{c:0{ndigit + 1}d}")[::-1]  # reverse c to make addition easier
         render = astr + bstr + cstr
         dix = [int(s) for s in render]  # convert each character to its token index
+
         # x will be input to GPT and y will be the associated expected outputs
         x = torch.tensor(dix[:-1], dtype=torch.long)
-        y = torch.tensor(
-            dix[1:], dtype=torch.long
-        )  # predict the next token in the sequence
-        y[
-            : ndigit * 2 - 1
-        ] = -1  # we will only train in the output locations. -1 will mask loss to zero
+
+        # predict the next token in the sequence
+        y = torch.tensor(dix[1:], dtype=torch.long)
+
+        # we will only train in the output locations. -1 will mask loss to zero
+        y[: ndigit * 2 - 1] = -1
         return x, y
 
 
-# -----------------------------------------------------------------------------
-
-if __name__ == "__main__":
-
+def cmd() -> None:
     # get default config and overrides from the command line, if any
     config = get_config()
     config.merge_from_args(sys.argv[1:])
     print(config)
+
     setup_logging(config)
     set_seed(config.system.seed)
 
@@ -165,44 +167,53 @@ if __name__ == "__main__":
         factors = torch.tensor([[10**i for i in range(ndigit + 1)][::-1]]).to(
             trainer.device
         )
+
         loader = DataLoader(dataset, batch_size=100, num_workers=0, drop_last=False)
         for b, (x, y) in enumerate(loader):
             x = x.to(trainer.device)
+
             # isolate the first two digits of the input sequence alone
             d1d2 = x[:, : ndigit * 2]
+
             # let the model sample the rest of the sequence
-            d1d2d3 = model.generate(
-                d1d2, ndigit + 1, do_sample=False
-            )  # using greedy argmax, not sampling
+            # using greedy argmax, not sampling
+            d1d2d3 = model.generate(d1d2, ndigit + 1, do_sample=False)
+
             # isolate the last digit of the sampled sequence
             d3 = d1d2d3[:, -(ndigit + 1) :]
             d3 = d3.flip(1)  # reverse the digits to their "normal" order
+
             # decode the integers from individual digits
             d1i = (d1d2[:, :ndigit] * factors[:, 1:]).sum(1)
             d2i = (d1d2[:, ndigit : ndigit * 2] * factors[:, 1:]).sum(1)
             d3i_pred = (d3 * factors).sum(1)
             d3i_gt = d1i + d2i  # manually calculate the ground truth
+
             # evaluate the correctness of the results in this batch
-            correct = (
-                d3i_pred == d3i_gt
-            ).cpu()  # Software 1.0 vs. Software 2.0 fight RIGHT on this line haha
+            # Software 1.0 vs. Software 2.0 fight RIGHT on this line haha
+            correct = (d3i_pred == d3i_gt).cpu()
+
             for i in range(x.size(0)):
                 results.append(int(correct[i]))
-                if (
-                    not correct[i] and mistakes_printed_already < 5
-                ):  # only print up to 5 mistakes to get a sense
+
+                # only print up to 5 mistakes to get a sense
+                if not correct[i] and mistakes_printed_already < 5:
                     mistakes_printed_already += 1
                     print(
-                        "GPT claims that %d + %d = %d but gt is %d"
+                        "GPT claims %d + %d = %d but gt is %d"
                         % (d1i[i], d2i[i], d3i_pred[i], d3i_gt[i])
                     )
+
             if max_batches is not None and b + 1 >= max_batches:
                 break
+
         rt = torch.tensor(results, dtype=torch.float)
+
         print(
             "%s final score: %d/%d = %.2f%% correct"
             % (split, rt.sum(), len(results), 100 * rt.mean())
         )
+
         return rt.sum()
 
     ckpt_path = Path(config.system.work_dir) / "model.pt"
@@ -213,26 +224,29 @@ if __name__ == "__main__":
 
         if trainer.iter_num % 10 == 0:
             print(
-                f"iter_dt {trainer.iter_dt * 1000:.2f}ms; iter {trainer.iter_num}: train loss {trainer.loss.item():.5f}"
+                f"iter_dt {trainer.iter_dt * 1000:.2f} ms; iter {trainer.iter_num}: train loss {trainer.loss.item():.5f}"
             )
 
         if trainer.iter_num % 500 == 0:
             # evaluate both the train and test score
-            train_max_batches = {1: None, 2: None, 3: 5}[
-                config.data.ndigit
-            ]  # if ndigit=2 we can afford the whole train set, ow no
+            # if ndigit <= 2 we can afford the whole train set, else limit
+            train_max_batches = 5 if config.data.ndigit > 2 else None
             model.eval()
+
             with torch.no_grad():
                 train_score = eval_split(
                     trainer, "train", max_batches=train_max_batches
                 )
                 test_score = eval_split(trainer, "test", max_batches=None)
+
             score = train_score + test_score
+
             # save the model if this is the best score we've seen so far
             if score > top_score:
-                print(f"saving model with new top score of {score}")
                 history["top_score"] = score
+                print(f"saving model with new top score: {score}")
                 torch.save(model.state_dict(), ckpt_path)
+
             # revert model to training mode
             model.train()
 
@@ -240,3 +254,7 @@ if __name__ == "__main__":
 
     # run the optimization
     trainer.run()
+
+
+if __name__ == "__main__":
+    cmd()
