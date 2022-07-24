@@ -1,13 +1,11 @@
-import os
 import sys
 import json
 import random
+from pathlib import Path
 from ast import literal_eval
 
 import numpy as np
 import torch
-
-# -----------------------------------------------------------------------------
 
 
 def set_seed(seed):
@@ -19,15 +17,16 @@ def set_seed(seed):
 
 def setup_logging(config):
     """monotonous bookkeeping"""
-    work_dir = config.system.work_dir
+    work_dir = Path(config.system.work_dir)
+
     # create the work directory if it doesn't already exist
-    os.makedirs(work_dir, exist_ok=True)
+    work_dir.mkdir(parents=True, exist_ok=True)
+
     # log the args (if any)
-    with open(os.path.join(work_dir, "args.txt"), "w") as f:
-        f.write(" ".join(sys.argv))
+    (work_dir / "args.txt").write_text(" ".join(sys.argv))
+
     # log the config itself
-    with open(os.path.join(work_dir, "config.json"), "w") as f:
-        f.write(json.dumps(config.to_dict(), indent=4))
+    (work_dir / "config.json").write_text(json.dumps(config.to_dict(), indent=4))
 
 
 class CfgNode:
@@ -76,7 +75,6 @@ class CfgNode:
         --model.n_layer=10 --trainer.batch_size=32
         """
         for arg in args:
-
             keyval = arg.split("=")
             assert len(keyval) == 2, (
                 "expecting each override arg to be of form --arg=value, got %s" % arg

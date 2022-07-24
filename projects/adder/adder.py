@@ -5,6 +5,7 @@ Trains a GPT to add n-digit numbers.
 import os
 import sys
 import json
+from pathlib import Path
 
 import torch
 from torch.utils.data import Dataset
@@ -14,11 +15,8 @@ from mingpt.model import GPT
 from mingpt.trainer import Trainer
 from mingpt.utils import set_seed, setup_logging, CfgNode as CN
 
-# -----------------------------------------------------------------------------
-
 
 def get_config():
-
     C = CN()
 
     # system
@@ -208,6 +206,7 @@ if __name__ == "__main__":
 
     # iteration callback
     top_score = 0
+    ckpt_path = Path(config.system.work_dir) / "model.pt"
 
     def batch_end_callback(trainer):
         global top_score
@@ -233,7 +232,6 @@ if __name__ == "__main__":
             if score > top_score:
                 top_score = score
                 print(f"saving model with new top score of {score}")
-                ckpt_path = os.path.join(config.system.work_dir, "model.pt")
                 torch.save(model.state_dict(), ckpt_path)
             # revert model to training mode
             model.train()
