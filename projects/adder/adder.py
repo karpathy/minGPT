@@ -117,9 +117,9 @@ class AdditionDataset(Dataset):
         # calculate the "label" of the addition problem a + b
         c = a + b
         # encode the digits of a, b, c into strings
-        astr = f"%0{ndigit}d" % a
-        bstr = f"%0{ndigit}d" % b
-        cstr = (f"%0{ndigit+1}d" % c)[::-1]  # reverse c to make addition easier
+        astr = f"{a:0{ndigit}d}"
+        bstr = f"{b:0{ndigit}d}"
+        cstr = (f"{c:0{ndigit + 1}d}")[::-1]  # reverse c to make addition easier
         render = astr + bstr + cstr
         dix = [int(s) for s in render]  # convert each character to its token index
         # x will be input to GPT and y will be the associated expected outputs
