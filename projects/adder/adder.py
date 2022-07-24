@@ -5,6 +5,7 @@ Trains a GPT to add n-digit numbers.
 import os
 import sys
 import json
+import string
 from pathlib import Path
 
 import torch
@@ -95,7 +96,7 @@ class AdditionDataset(Dataset):
         self.ixes = perm[:num_test] if split == "test" else perm[num_test:]
 
     def get_vocab_size(self):
-        return 10  # digits 0..9
+        return len(string.digits)
 
     def get_block_size(self):
         # a,b,a+b, and +1 due to potential carry overflow,
