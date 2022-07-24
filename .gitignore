@@ -6,3 +6,4 @@ __pycache__/
 out/
 poetry.lock
 dist/
+input.txt
