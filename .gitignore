@@ -3,3 +3,4 @@ __pycache__/
 *.swp
 .env
 .pylintrc
+out/
