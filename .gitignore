@@ -4,3 +4,5 @@ __pycache__/
 .env
 .pylintrc
 out/
+poetry.lock
+dist/
