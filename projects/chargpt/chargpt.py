@@ -4,6 +4,7 @@ Trains a character-level language model.
 
 import os
 import sys
+from pathlib import Path
 
 import torch
 from torch.utils.data import Dataset
@@ -13,31 +14,33 @@ from mingpt.model import GPT
 from mingpt.trainer import Trainer
 from mingpt.utils import set_seed, setup_logging, CfgNode as CN
 
-# -----------------------------------------------------------------------------
 
 def get_config():
-
     C = CN()
 
     # system
     C.system = CN()
     C.system.seed = 3407
-    C.system.work_dir = './out/chargpt'
+    C.system.work_dir = "./out/chargpt"
 
     # data
     C.data = CharDataset.get_default_config()
 
     # model
     C.model = GPT.get_default_config()
-    C.model.model_type = 'gpt-mini'
+    C.model.model_type = "gpt-mini"
 
     # trainer
     C.trainer = Trainer.get_default_config()
-    C.trainer.learning_rate = 5e-4 # the model we're using is so small that we can go a bit faster
+
+    # the model we're using is so small that we can go a bit faster
+    C.trainer.learning_rate = 5e-4
 
     return C
 
+
 # -----------------------------------------------------------------------------
+
 
 class CharDataset(Dataset):
     """
@@ -55,10 +58,10 @@ class CharDataset(Dataset):
 
         chars = sorted(list(set(data)))
         data_size, vocab_size = len(data), len(chars)
-        print('data has %d characters, %d unique.' % (data_size, vocab_size))
+        print("data has %d characters, %d unique." % (data_size, vocab_size))
 
-        self.stoi = { ch:i for i,ch in enumerate(chars) }
-        self.itos = { i:ch for i,ch in enumerate(chars) }
+        self.stoi = {ch: i for i, ch in enumerate(chars)}
+        self.itos = {i: ch for i, ch in enumerate(chars)}
         self.vocab_size = vocab_size
         self.data = data
 
@@ -73,7 +76,7 @@ class CharDataset(Dataset):
 
     def __getitem__(self, idx):
         # grab a chunk of (block_size + 1) characters from the data
-        chunk = self.data[idx:idx + self.config.block_size + 1]
+        chunk = self.data[idx : idx + self.config.block_size + 1]
         # encode every character to an integer
         dix = [self.stoi[s] for s in chunk]
         # return as tensors
@@ -81,10 +84,8 @@ class CharDataset(Dataset):
         y = torch.tensor(dix[1:], dtype=torch.long)
         return x, y
 
-# -----------------------------------------------------------------------------
 
-if __name__ == '__main__':
-
+def cmd():
     # get default config and overrides from the command line, if any
     config = get_config()
     config.merge_from_args(sys.argv[1:])
@@ -93,7 +94,7 @@ if __name__ == '__main__':
     set_seed(config.system.seed)
 
     # construct the training dataset
-    text = open('input.txt', 'r').read() # don't worry we won't run out of file handles
+    text = Path("input.txt").read_text()
     train_dataset = CharDataset(config.data, text)
 
     # construct the model
@@ -103,12 +104,14 @@ if __name__ == '__main__':
 
     # construct the trainer object
     trainer = Trainer(config.trainer, model, train_dataset)
+    ckpt_path = Path(config.system.work_dir) / "model.pt"
 
     # iteration callback
     def batch_end_callback(trainer):
-
         if trainer.iter_num % 10 == 0:
-            print(f"iter_dt {trainer.iter_dt * 1000:.2f}ms; iter {trainer.iter_num}: train loss {trainer.loss.item():.5f}")
+            print(
+                f"iter_dt {trainer.iter_dt * 1000:.2f} ms; iter {trainer.iter_num}: train loss {trainer.loss.item():.5f}"
+            )
 
         if trainer.iter_num % 500 == 0:
             # evaluate both the train and test score
@@ -116,18 +119,32 @@ if __name__ == '__main__':
             with torch.no_grad():
                 # sample from the model...
                 context = "O God, O God!"
-                x = torch.tensor([train_dataset.stoi[s] for s in context], dtype=torch.long)[None,...].to(trainer.device)
+
+                # Note: your input.txt must have all characters in 'context' for this to work
+                #       because this finds the index of each character in 'context' inside
+                #       input.txt, so if input.txt doesn't have, say, capital O or ! then
+                #       you'll get a KeyError here.
+                x = torch.tensor(
+                    [train_dataset.stoi[s] for s in context], dtype=torch.long
+                )[None, ...].to(trainer.device)
+
                 y = model.generate(x, 500, temperature=1.0, do_sample=True, top_k=10)[0]
-                completion = ''.join([train_dataset.itos[int(i)] for i in y])
+
+                completion = "".join([train_dataset.itos[int(i)] for i in y])
                 print(completion)
+
             # save the latest model
             print("saving model")
-            ckpt_path = os.path.join(config.system.work_dir, "model.pt")
             torch.save(model.state_dict(), ckpt_path)
+
             # revert model to training mode
             model.train()
 
-    trainer.set_callback('on_batch_end', batch_end_callback)
+    trainer.set_callback("on_batch_end", batch_end_callback)
 
     # run the optimization
     trainer.run()
+
+
+if __name__ == "__main__":
+    cmd()

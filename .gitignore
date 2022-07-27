@@ -3,3 +3,7 @@ __pycache__/
 *.swp
 .env
 .pylintrc
+out/
+poetry.lock
+dist/
+input.txt
