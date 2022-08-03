@@ -12,6 +12,16 @@ The minGPT library is three files: [mingpt/model.py](mingpt/model.py) contains t
 - `demo.ipynb` shows a minimal usage of the `GPT` and `Trainer` in a notebook format on a simple sorting example
 - `generate.ipynb` shows how one can load a pretrained GPT2 and generate text given some prompt
 
+### Library Installation
+
+If you want to `import mingpt` into your project:
+
+```
+git clone https://github.com/karpathy/minGPT.git
+cd minGPT
+pip install -e .
+```
+
 ### Usage
 
 Here's how you'd instantiate a GPT-2 (124M param version):
