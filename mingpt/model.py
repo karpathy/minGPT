@@ -257,7 +257,7 @@ class GPT(nn.Module):
         optimizer = torch.optim.AdamW(optim_groups, lr=train_config.learning_rate, betas=train_config.betas)
         return optimizer
 
-    def embed(self, idx):
+    def embed_inputs(self, idx):
         device = idx.device
         b, t = idx.size()
         assert t <= self.block_size, f"Cannot forward sequence of length {t}, block size is only {self.block_size}"
@@ -268,7 +268,7 @@ class GPT(nn.Module):
 
     def forward(self, idx, targets=None):
         # forward the GPT model itself
-        input_embeddings = self.embed(idx)
+        input_embeddings = self.embed_inputs(idx)
         x = self.transformer.drop(input_embeddings)
         for block in self.transformer.h:
             x = block(x)
