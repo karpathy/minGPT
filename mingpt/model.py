@@ -110,7 +110,7 @@ class GPT(nn.Module):
         C.embd_pdrop = 0.1
         C.resid_pdrop = 0.1
         C.attn_pdrop = 0.1
-        # add parameter dtype
+        # parameter dtype
         C.dtype = torch.float32
         return C
 
