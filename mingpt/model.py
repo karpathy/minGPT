@@ -125,7 +125,9 @@ class GPT(nn.Module):
                 config.dtype = getattr(torch, config.dtype)
             except:
                 raise ValueError(f"Unknown dtype {config.dtype}")
+        # check that the dtype is a floating point
         self.dtype = config.dtype
+        assert torch.is_floating_point(self.dtype)
 
         type_given = config.model_type is not None
         params_given = all([config.n_layer is not None, config.n_head is not None, config.n_embd is not None])
