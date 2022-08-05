@@ -92,6 +92,26 @@ class Block(nn.Module):
         x = x + self.mlpf(self.ln_2(x))
         return x
 
+
+class GPTEncoder(nn.Module):
+    """Default Encoder for GPT."""
+    def __init__(self, config):
+        super().__init__()
+        self.block_size = config.block_size
+        self.wte = nn.Embedding(config.vocab_size, config.n_embd)
+        self.wpe = nn.Embedding(config.block_size, config.n_embd)
+        self.drop = nn.Dropout(config.embd_pdrop)
+
+    def forward(self, idx):
+        device = idx.device
+        b, t = idx.size()
+        assert t <= self.block_size, f"Cannot forward sequence of length {t}, block size is only {self.block_size}"
+        pos = torch.arange(0, t, dtype=torch.long, device=device).unsqueeze(0) # shape (1, t)
+        tok_emb = self.wte(idx) # token embeddings of shape (b, t, n_embd)
+        pos_emb = self.wpe(pos) # position embeddings of shape (1, t, n_embd)
+        return self.drop(tok_emb + pos_emb)
+
+
 class GPT(nn.Module):
     """ GPT Language Model """
 
@@ -140,15 +160,12 @@ class GPT(nn.Module):
                 'gpt-micro':    dict(n_layer=4, n_head=4, n_embd=128),
                 'gpt-nano':     dict(n_layer=3, n_head=3, n_embd=48),
             }[config.model_type])
-
+        self._init_encoder(config)
         self.transformer = nn.ModuleDict(dict(
-            wte = nn.Embedding(config.vocab_size, config.n_embd),
-            wpe = nn.Embedding(config.block_size, config.n_embd),
-            drop = nn.Dropout(config.embd_pdrop),
             h = nn.ModuleList([Block(config) for _ in range(config.n_layer)]),
             ln_f = nn.LayerNorm(config.n_embd),
         ))
-        self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
+        self._init_decoder(config)
 
         # init all weights, and apply a special scaled init to the residual projections, per GPT-2 paper
         self.apply(self._init_weights)
@@ -159,6 +176,12 @@ class GPT(nn.Module):
         # report number of parameters (note we don't count the decoder parameters in lm_head)
         n_params = sum(p.numel() for p in self.transformer.parameters())
         print("number of parameters: %.2fM" % (n_params/1e6,))
+
+    def _init_encoder(self, config):
+        self.encoder = GPTEncoder(config)
+
+    def _init_decoder(self, config):
+        self.decoder = nn.Linear(config.n_embd, config.vocab_size, bias=False)
 
     def _init_weights(self, module):
         if isinstance(module, nn.Linear):
@@ -204,6 +227,18 @@ class GPT(nn.Module):
                 assert sd_hf[k].shape[::-1] == sd[k].shape
                 with torch.no_grad():
                     sd[k].copy_(sd_hf[k].t())
+            # Maintain backward-compatibility with HF checkpoint scopes.
+            elif 'wte' in k or 'wpe' in k:
+                # Change scope name from transformer -> encoder.
+                sd_key = k.replace('transformer', 'encoder')
+                assert sd_hf[k].shape == sd[sd_key].shape
+                with torch.no_grad():
+                    sd[sd_key].copy_(sd_hf[k])
+            elif 'lm_head' in k:
+                sd_key = k.replace('lm_head', 'decoder')
+                assert sd_hf[k].shape == sd[sd_key].shape
+                with torch.no_grad():
+                    sd[sd_key].copy_(sd_hf[k])
             else:
                 # vanilla copy over the other parameters
                 assert sd_hf[k].shape == sd[k].shape
@@ -257,23 +292,13 @@ class GPT(nn.Module):
         optimizer = torch.optim.AdamW(optim_groups, lr=train_config.learning_rate, betas=train_config.betas)
         return optimizer
 
-    def embed_inputs(self, idx):
-        device = idx.device
-        b, t = idx.size()
-        assert t <= self.block_size, f"Cannot forward sequence of length {t}, block size is only {self.block_size}"
-        pos = torch.arange(0, t, dtype=torch.long, device=device).unsqueeze(0) # shape (1, t)
-        tok_emb = self.transformer.wte(idx) # token embeddings of shape (b, t, n_embd)
-        pos_emb = self.transformer.wpe(pos) # position embeddings of shape (1, t, n_embd)
-        return tok_emb + pos_emb
-
     def forward(self, idx, targets=None):
         # forward the GPT model itself
-        input_embeddings = self.embed_inputs(idx)
-        x = self.transformer.drop(input_embeddings)
+        x = self.encoder(idx)
         for block in self.transformer.h:
             x = block(x)
         x = self.transformer.ln_f(x)
-        logits = self.lm_head(x)
+        logits = self.decoder(x)
 
         # if we are given some desired targets also calculate the loss
         loss = None
