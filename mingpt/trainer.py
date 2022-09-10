@@ -27,6 +27,7 @@ class Trainer:
         C.betas = (0.9, 0.95)
         C.weight_decay = 0.1 # only applied on matmul weights
         C.grad_norm_clip = 1.0
+        C.data_parallel = True
         return C
 
     def __init__(self, config, model, train_dataset):
@@ -65,7 +66,7 @@ class Trainer:
         # setup the optimizer
         self.optimizer = model.configure_optimizers(config)
 
-        if torch.cuda.device_count() > 1:
+        if torch.cuda.device_count() > 1 and config.data_parallel:
             model = nn.DataParallel(model)
             model.to(self.device)
 
