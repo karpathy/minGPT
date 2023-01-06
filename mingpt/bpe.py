@@ -118,13 +118,13 @@ class Encoder:
                 break # no more bigrams are eligible to be merged
             first, second = bigram
 
-            # we will now replace all occurences of (first, second) in the list of current
+            # we will now replace all occurrence of (first, second) in the list of current
             # words into one merged token first_second, in the output list new_words
             new_word = []
             i = 0
             while i < len(word):
 
-                # find the next occurence of first in the sequence of current words
+                # find the next occurrence of first in the sequence of current words
                 try:
                     j = word.index(first, i)
                     new_word.extend(word[i:j])
@@ -133,7 +133,7 @@ class Encoder:
                     new_word.extend(word[i:])
                     break
 
-                # if this occurence is also followed by second, then merge them into one
+                # if this occurrence is also followed by second, then merge them into one
                 if word[i] == first and i < len(word)-1 and word[i+1] == second:
                     new_word.append(first+second)
                     i += 2
@@ -141,7 +141,7 @@ class Encoder:
                     new_word.append(word[i])
                     i += 1
 
-            # all occurences of (first, second) have been merged to first_second
+            # all occurrence of (first, second) have been merged to first_second
             new_word = tuple(new_word)
             word = new_word
             if len(word) == 1:
