@@ -1,0 +1,44 @@
+name: unittests
+
+on:
+  push:
+    branches:
+      - master
+
+  pull_request:
+    branches:
+      - "*"
+
+jobs:
+  unittests:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        python: [ '3.8', '3.9', '3.10' ]
+        os: [ ubuntu-latest, macos-latest ]
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python ${{ matrix.python }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: 'setup.py'
+
+      - name: Install transformers
+        run: pip install transformers==4.25.1
+
+      - name: Install minGPT
+        run: pip install -e .
+
+      - name: Cache downloaded HF models
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/huggingface/
+          key: huggingface-${{ matrix.os }}
+
+      - name: unittest
+        run: python -m unittest discover tests
