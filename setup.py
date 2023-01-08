@@ -8,5 +8,6 @@ setup(name='minGPT',
       license='MIT',
       install_requires=[
             'torch',
+            'transformers',
       ],
 )
