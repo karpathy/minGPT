@@ -14,22 +14,20 @@ The minGPT library is three files: [mingpt/model.py](mingpt/model.py) contains t
 - `demo.ipynb` shows a minimal usage of the `GPT` and `Trainer` in a notebook format on a simple sorting example
 - `generate.ipynb` shows how one can load a pretrained GPT2 and generate text given some prompt
 
-### Library Installation
-
-If you want to `import mingpt` into your project:
+## Install
 
 ```
-git clone https://github.com/karpathy/minGPT.git
-cd minGPT
-pip install -e .
+pip install git+https://github.com/karpathy/minGPT.git
+
 ```
 
-### Usage
+## Usage
 
 Here's how you'd instantiate a GPT-2 (124M param version):
 
 ```python
 from mingpt.model import GPT
+
 model_config = GPT.get_default_config()
 model_config.model_type = 'gpt2'
 model_config.vocab_size = 50257 # openai's model vocabulary
@@ -45,6 +43,7 @@ And here's how you'd train it:
 train_dataset = YourDataset()
 
 from mingpt.trainer import Trainer
+
 train_config = Trainer.get_default_config()
 train_config.learning_rate = 5e-4 # many possible options, see the file
 train_config.max_iters = 1000
@@ -55,7 +54,7 @@ trainer.run()
 
 See `demo.ipynb` for a more concrete example.
 
-### Unit tests
+## Unit tests
 
 Coverage is not super amazing just yet but:
 
@@ -63,17 +62,17 @@ Coverage is not super amazing just yet but:
 python -m unittest discover tests
 ```
 
-### todos
+## Todo
 
-- add gpt-2 finetuning demo on arbitrary given text file
-- add dialog agent demo
-- better docs of outcomes for existing projects (adder, chargpt)
-- add mixed precision and related training scaling goodies
-- distributed training support
-- reproduce some benchmarks in projects/, e.g. text8 or other language modeling
-- proper logging instead of print statement amateur hour haha
-- i probably should have a requirements.txt file...
-- it should be possible to load in many other model weights other than just gpt2-\*
+- [ ] Add gpt-2 finetuning demo on arbitrary given text file
+- [ ] add dialog agent demo
+- [ ] better docs of outcomes for existing projects (adder, chargpt)
+- [ ] add mixed precision and related training scaling goodies
+- [ ] distributed training support
+- [ ] reproduce some benchmarks in projects/, e.g. text8 or other language modeling
+- [ ] proper logging instead of print statement amateur hour haha
+- [ ] i probably should have a requirements.txt file...
+- [ ] it should be possible to load in many other model weights other than just gpt2-\*
 
 ### References
 

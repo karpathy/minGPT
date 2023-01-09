@@ -1,0 +1,13 @@
+LICENSE
+README.md
+setup.py
+minGPT.egg-info/PKG-INFO
+minGPT.egg-info/SOURCES.txt
+minGPT.egg-info/dependency_links.txt
+minGPT.egg-info/requires.txt
+minGPT.egg-info/top_level.txt
+mingpt/__init__.py
+mingpt/bpe.py
+mingpt/model.py
+mingpt/trainer.py
+mingpt/utils.py
