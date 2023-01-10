@@ -51,19 +51,20 @@ class CausalSelfAttention(nn.Module):
 
     def forward(self, x):
         B, T, C = x.size() # batch size, sequence length, embedding dimensionality (embd_dim)
+        head_dim = C // self.n_head  # alias: hd
 
         # calculate query, key, values for all heads in batch and move head forward to be the batch dim
         q, k ,v  = self.c_attn(x).split(self.embd_dim, dim=2)
-        k = k.view(B, T, self.n_head, C // self.n_head).transpose(1, 2) # (B, nh, T, hs)
-        q = q.view(B, T, self.n_head, C // self.n_head).transpose(1, 2) # (B, nh, T, hs)
-        v = v.view(B, T, self.n_head, C // self.n_head).transpose(1, 2) # (B, nh, T, hs)
+        k = k.view(B, T, self.n_head, head_dim).transpose(1, 2) # (B, nh, T, hd)
+        q = q.view(B, T, self.n_head, head_dim).transpose(1, 2) # (B, nh, T, hd)
+        v = v.view(B, T, self.n_head, head_dim).transpose(1, 2) # (B, nh, T, hd)
 
-        # causal self-attention; Self-attend: (B, nh, T, hs) x (B, nh, hs, T) -> (B, nh, T, T)
+        # causal self-attention; Self-attend: (B, nh, T, hd) x (B, nh, hd, T) -> (B, nh, T, T)
         attn = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
         attn = attn.masked_fill(self.bias[:,:,:T,:T] == 0, float('-inf'))
         attn = F.softmax(attn, dim=-1)
         attn = self.attn_dropout(attn)
-        y = attn @ v # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
+        y = attn @ v # (B, nh, T, T) x (B, nh, T, hd) -> (B, nh, T, hd)
         y = y.transpose(1, 2).contiguous().view(B, T, C) # re-assemble all head outputs side by side
 
         # output projection
