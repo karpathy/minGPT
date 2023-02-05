@@ -1,5 +1,5 @@
 
-# minGPT
+# maxGPT
 
 ![mingpt](mingpt.jpg)
 
