@@ -123,15 +123,16 @@ class Encoder:
             new_word = []
             i = 0
             while i < len(word):
-
                 # find the next occurence of first in the sequence of current words
                 try:
                     j = word.index(first, i)
                     new_word.extend(word[i:j])
                     i = j
-                except:
+                except ValueError:
                     new_word.extend(word[i:])
                     break
+                except TypeError:
+                    raise 
 
                 # if this occurence is also followed by second, then merge them into one
                 if word[i] == first and i < len(word)-1 and word[i+1] == second:
