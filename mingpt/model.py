@@ -267,7 +267,7 @@ class GPT(nn.Module):
         tok_emb = self.transformer.wte(idx) # token embeddings of shape (b, t, n_embd)
         pos_emb = self.transformer.wpe(pos) # position embeddings of shape (1, t, n_embd)
         x = self.transformer.drop(tok_emb + pos_emb)
-        for block in self.transformer.h:
+        for block in self.transformer.l:#Renaming transformer.h into transformer.l issue #94
             x = block(x)
         x = self.transformer.ln_f(x)
         logits = self.lm_head(x)
