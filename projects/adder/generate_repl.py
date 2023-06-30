@@ -12,7 +12,12 @@ if not os.path.isfile("out/adder/config.json") or not os.path.exists("out/adder/
 
 # load config
 C = CN()
-C.merge_from_dict(json.loads(open("out/adder/config.json").read())["model"])
+config = json.loads(open("out/adder/config.json").read())
+C.merge_from_dict(config["model"])
+if C.vocab_size is None:
+    C.vocab_size = 10
+if C.block_size is None:
+    C.block_size = config["data"]["ndigit"] * 3
 
 # load model checkpoint
 model = GPT(C)
