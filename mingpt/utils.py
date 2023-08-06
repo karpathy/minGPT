@@ -4,6 +4,7 @@ import sys
 import json
 import random
 from ast import literal_eval
+from collections import namedtuple
 
 import numpy as np
 import torch
@@ -31,7 +32,6 @@ def setup_logging(config):
 class CfgNode:
     """ a lightweight configuration class inspired by yacs """
     # TODO: convert to subclass from a dict like in yacs?
-    # TODO: implement freezing to prevent shooting of own foot
     # TODO: additional existence/override checks when reading/writing params?
 
     def __init__(self, **kwargs):
@@ -51,6 +51,11 @@ class CfgNode:
                 parts.append("%s: %s\n" % (k, v))
         parts = [' ' * (indent * 4) + p for p in parts]
         return "".join(parts)
+
+    def freeze(self):
+        asdict = self.to_dict()
+        frozen_cfg_builder = namedtuple('CfgNode', [k for k in asdict.keys()])
+        return frozen_cfg_builder(**asdict)
 
     def to_dict(self):
         """ return a dict representation of the config """
