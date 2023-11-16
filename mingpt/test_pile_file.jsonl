@@ -1,0 +1,3 @@
+{"text": "This is a test to make sure the JSONL dataloader is working", "meta": "This is garbage" }
+{"text": "This is the second line for the JSONL file", "meta": "do re me fa so la ti"}
+{"text": "this is the last line you're getting from this JSONL file", "meta": "END"}

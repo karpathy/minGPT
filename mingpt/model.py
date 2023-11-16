@@ -13,6 +13,7 @@ import math
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
+import os
 
 from mingpt.utils import CfgNode as CN
 
@@ -308,3 +309,18 @@ class GPT(nn.Module):
             idx = torch.cat((idx, idx_next), dim=1)
 
         return idx
+    
+    def save(self, file_name = 'model.pth'):
+        model_folder_path = './model'
+        if not os.path.exists(model_folder_path):
+            os.makedirs(model_folder_path)
+
+        file_name = os.path.join(model_folder_path, file_name)
+        torch.save(self.state_dict(), file_name)
+
+    def load(self, file_name = 'model.pth'):
+        model_folder_path = 'D:\DeepLearningProjects\minGPT\model'
+        file_name = os.path.join(model_folder_path, file_name)
+        chk_pnt = torch.load(file_name)
+        self.load_state_dict(chk_pnt)
+
