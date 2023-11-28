@@ -87,7 +87,7 @@ class UL_Dataset(Dataset):
 
         x = torch.tensor(x, dtype=torch.long)
         y = torch.tensor(y, dtype=torch.long)
-        return x, x
+        return x, y
     
     def get_r_noise(self, idx):
         x, y = self.non_con_corruption(idx, 0.15, 3)
@@ -184,7 +184,7 @@ if __name__ == "__main__":
     model = UL_GPT(config.model)
 
     # construct the trainer object
-    trainer = Trainer(config.trainer, model, train_dataset)
+    trainer = UL_Trainer(config.trainer, model, train_dataset)
 
     # iteration callback
     def batch_end_callback(trainer):

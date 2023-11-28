@@ -80,14 +80,8 @@ class UL_Trainer:
         self.iter_num = 0
         self.iter_time = time.time()
         data_iter = iter(train_loader)
-        while True:
+        for batch, (x,y) in enumerate(train_loader):
 
-            # fetch the next batch (x, y) and re-init iterator if needed
-            try:
-                batch = next(data_iter)
-            except StopIteration:
-                data_iter = iter(train_loader)
-                batch = next(data_iter)
             batch = [t.to(self.device) for t in batch]
             x, y = batch
 
