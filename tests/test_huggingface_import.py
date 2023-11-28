@@ -1,6 +1,8 @@
 """
 Ensure that we can load huggingface/transformer GPTs into minGPT
 """
+import sys
+sys.path.append('../mingpt')
 
 import unittest
 import torch

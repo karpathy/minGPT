@@ -34,7 +34,7 @@ def get_config():
     # trainer
     C.trainer = Trainer.get_default_config()
     C.trainer.learning_rate = 5e-4 
-    C.trainer.max_iters = 1001
+    C.trainer.max_iters = 1
     C.trainer.batch_size = 4
 
     return C
@@ -97,8 +97,11 @@ if __name__ == "__main__":
     set_seed(config.system.seed)
 
     # construct the training dataset
-    train_dataset = JSONL_Dataset(file_path, 1024)
+    train_dataset = JSONL_Dataset(file_path, 100)
     
+    print(train_dataset.__getitem__(0))
+
+    """
     iter = []
     loss = []
 
@@ -148,5 +151,5 @@ if __name__ == "__main__":
     plt.ylabel('loss')
     plt.title('Training Loss')
     plt.savefig("Loss.png")
-
+    """
     
