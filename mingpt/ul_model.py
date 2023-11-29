@@ -45,8 +45,9 @@ class CausalSelfAttention(nn.Module):
         self.attn_dropout = nn.Dropout(config.attn_pdrop)
         self.resid_dropout = nn.Dropout(config.resid_pdrop)
         # causal mask to ensure that attention is only applied to the left in the input sequence
-        self.register_buffer("bias", torch.tril(torch.ones(config.block_size, config.block_size))
-                                     .view(1, 1, config.block_size, config.block_size))
+        self.register_buffer("bias", torch.ones(config.block_size, config.block_size)
+                             .view(1, 1, config.block_size, config.block_size))
+        print(self.get_buffer("bias"))
         self.n_head = config.n_head
         self.n_embd = config.n_embd
 
@@ -93,7 +94,7 @@ class Block(nn.Module):
         x = x + self.mlpf(self.ln_2(x))
         return x
 
-class GPT(nn.Module):
+class UL_GPT(nn.Module):
     """ GPT Language Model """
 
     @staticmethod
@@ -186,7 +187,7 @@ class GPT(nn.Module):
         config.model_type = model_type
         config.vocab_size = 50257 # openai's model vocabulary
         config.block_size = 1024  # openai's model block_size
-        model = GPT(config)
+        model = UL_GPT(config)
         sd = model.state_dict()
 
         # init a huggingface/transformers model

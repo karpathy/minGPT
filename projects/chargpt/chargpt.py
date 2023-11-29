@@ -74,6 +74,7 @@ class CharDataset(Dataset):
     def __getitem__(self, idx):
         # grab a chunk of (block_size + 1) characters from the data
         chunk = self.data[idx:idx + self.config.block_size + 1]
+        #print(chunk)
         # encode every character to an integer
         dix = [self.stoi[s] for s in chunk]
         # return as tensors
@@ -115,7 +116,7 @@ if __name__ == '__main__':
             model.eval()
             with torch.no_grad():
                 # sample from the model...
-                context = "O God, O God!"
+                context = "o god o god"
                 x = torch.tensor([train_dataset.stoi[s] for s in context], dtype=torch.long)[None,...].to(trainer.device)
                 y = model.generate(x, 500, temperature=1.0, do_sample=True, top_k=10)[0]
                 completion = ''.join([train_dataset.itos[int(i)] for i in y])
